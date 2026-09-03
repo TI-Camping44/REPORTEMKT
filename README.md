@@ -224,7 +224,13 @@ uno, para no volver a investigarlo si algún día se enciende el vínculo:
 | --- | --- |
 | **Control presupuestario** | Hoja de Google nativa. El cuadro que va al informe es «Presupuesto por cuenta contable — año completo», en la pestaña *Dashboard*: once filas de números que se recalculan solos. Es el único de los tres donde el vínculo se pagaría |
 | **Plan de pautas** | Hoja de Google nativa, con una pestaña por empresa. Su columna «Estado» **no existe como texto**: está en el color de la celda, y la API de Sheets devuelve valores, no colores. Vincular medio cuadro traería la complejidad de las dos formas y las ventajas de ninguna |
-| **NPS** | No sale de una planilla. El informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio, de acceso público, que devuelve el resumen en JSON. Son dos números por período: una integración propia no se justifica |
+| **NPS** | No sale de una planilla. El sitio `ti-camping44.github.io/NPS-REPORTE` no guarda datos: consulta un Apps Script propio, de acceso público, que devuelve el resumen en JSON (puntaje NPS, total de respuestas, promotores, pasivos y detractores con su porcentaje). Son dos números por período: una integración propia no se justifica |
+
+**Pendiente de aclarar con Marketing:** el informe del 14/08 rotula «NPS Camping
+44 · 93 %», pero el NPS es un puntaje de −100 a +100, no un porcentaje. En el
+tablero de NPS lo que sí es porcentaje es la proporción de promotores. Antes de
+automatizar ese número —si algún día se hace— hay que definir cuál de los dos
+quiere ver Dirección.
 
 ### Puesta en marcha
 
