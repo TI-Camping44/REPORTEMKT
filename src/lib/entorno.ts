@@ -33,6 +33,18 @@ export function dominioPermitido(): string {
   return requerida('DOMINIO_PERMITIDO', process.env.DOMINIO_PERMITIDO).toLowerCase();
 }
 
+/**
+ * Hay credencial para leer planillas de Google.
+ *
+ * Se consulta desde el servidor para decidir si la edicion ofrece vincular un
+ * bloque a una planilla. Sin credencial la opcion no se dibuja: una casilla que
+ * al marcarse solo devuelve un error no le sirve a nadie.
+ */
+export function hayCredencialDePlanillas(): boolean {
+  const credencial = process.env.GOOGLE_CUENTA_SERVICIO;
+  return credencial !== undefined && credencial.trim() !== '';
+}
+
 /** Base publica de la aplicacion, usada para armar la URL de retorno de Google. */
 export function urlDelSitio(): string {
   const declarada = process.env.NEXT_PUBLIC_SITE_URL;

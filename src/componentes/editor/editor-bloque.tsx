@@ -20,6 +20,7 @@ import { EditorAlertas } from '@/componentes/editor/editor-alertas';
 import { EditorCalendario } from '@/componentes/editor/editor-calendario';
 import { EditorEnlaces } from '@/componentes/editor/editor-enlaces';
 import { EditorFichas } from '@/componentes/editor/editor-fichas';
+import { EditorFuente } from '@/componentes/editor/editor-fuente';
 import { EditorHitos } from '@/componentes/editor/editor-hitos';
 import { EditorIndicadores } from '@/componentes/editor/editor-indicadores';
 import { EditorLineaTiempo } from '@/componentes/editor/editor-linea-tiempo';
@@ -47,10 +48,14 @@ export function EditorBloque({
   bloque,
   esPrimero,
   esUltimo,
+  informePublicado,
+  planillasDisponibles,
 }: {
   bloque: Bloque;
   esPrimero: boolean;
   esUltimo: boolean;
+  informePublicado: boolean;
+  planillasDisponibles: boolean;
 }) {
   const [titulo, establecerTitulo] = useState(bloque.titulo);
   const [accionTitulo, establecerAccionTitulo] = useState(bloque.accion_titulo);
@@ -155,7 +160,21 @@ export function EditorBloque({
           </Etiquetado>
         </div>
 
-        <FormularioSegunTipo bloque={bloque} contenido={contenido} alCambiar={cambiar} />
+        <EditorFuente
+          bloque={bloque}
+          informePublicado={informePublicado}
+          planillasDisponibles={planillasDisponibles}
+        />
+
+        {bloque.fuente === 'planilla' ? (
+          <p className="rounded-md border border-dashed border-borde px-3 py-2.5 text-xs leading-relaxed text-atenuado">
+            El contenido de este bloque lo trae la planilla, así que no se edita acá: lo que escriba
+            se perdería en la próxima lectura. Corrija los datos en la planilla y pulse «Actualizar
+            ahora».
+          </p>
+        ) : (
+          <FormularioSegunTipo bloque={bloque} contenido={contenido} alCambiar={cambiar} />
+        )}
 
         {mensaje !== null ? <Aviso tono="exito">{mensaje}</Aviso> : null}
 

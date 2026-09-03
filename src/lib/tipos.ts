@@ -69,6 +69,8 @@ export type Seccion = {
   orden: number;
 };
 
+export type FuenteBloque = 'manual' | 'planilla';
+
 export type Bloque = {
   id: string;
   seccion_id: string;
@@ -78,6 +80,12 @@ export type Bloque = {
   accion_titulo: string;
   accion_url: string;
   contenido: ContenidoBloque;
+  /** manual: lo escribe Marketing. planilla: se lee de una hoja de Google Sheets. */
+  fuente: FuenteBloque;
+  fuente_planilla_id: string;
+  fuente_rango: string;
+  fuente_actualizada_en: string | null;
+  fuente_error: string;
 };
 
 export type Enlace = {

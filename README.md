@@ -60,6 +60,8 @@ entornos.
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta. **Ignora RLS.** Solo scripts de mantenimiento, jamás con prefijo `NEXT_PUBLIC_` | Sí |
 | `DOMINIO_PERMITIDO` | Dominio de Google Workspace autorizado, sin arroba | No, pero no se escribe en el código |
 | `NEXT_PUBLIC_SITE_URL` | Base pública, para armar la dirección de retorno de Google | No |
+| `GOOGLE_CUENTA_SERVICIO` | Credencial de la cuenta de servicio que lee las planillas. Opcional | Sí |
+| `CRON_SECRET` | Secreto de la tarea diaria que refresca los bloques vinculados. Opcional | Sí |
 
 ### Scripts
 
@@ -172,6 +174,74 @@ No es una migración y no se aplica en Supabase.
 donde está la base de datos. Si el proyecto de Supabase se recrea en otra
 región, hay que cambiar ese valor: dejar la aplicación y la base en continentes
 distintos agrega una ida y vuelta a cada consulta.
+
+## Bloques vinculados a una planilla
+
+> **Hoy está apagado.** La aplicación puede leer un cuadro directamente de una
+> hoja de Google, pero eso necesita una credencial de Google que la empresa
+> decidió no crear por ahora. Mientras `GOOGLE_CUENTA_SERVICIO` esté vacía, la
+> opción **no aparece** en la pantalla de edición y todos los cuadros se cargan
+> a mano, con el botón del bloque apuntando a su planilla. Para encenderlo
+> alcanza con crear la cuenta de servicio y cargar la variable: no hay que tocar
+> código.
+
+Un cuadro puede quedar vinculado a un rango de Google Sheets y llenarse solo.
+
+Se configura por bloque, desde la pantalla de edición: se pega la dirección de
+la hoja y el rango (`Pautas!A1:E30`). Solo admiten vínculo los bloques de
+**tabla** e **indicadores**; el resto del informe no sale de ninguna planilla.
+
+- **Tabla** — la primera fila del rango son los títulos de las columnas. Una
+  fila que empiece con «Total» se toma como fila de totales. Si el título de una
+  columna coincide con una que el bloque ya tenía, se conserva su formato, su
+  alineación y sus colores de estado: la planilla trae los datos, no el diseño.
+- **Indicadores** — la primera fila son encabezados. Hacen falta `etiqueta` y
+  `valor`; `formato`, `decimales`, `variacion`, `detalle` y `mejorSiBaja` son
+  opcionales.
+
+El rango no tiene que salir perfecto al primer intento: las filas y las columnas
+vacías de los bordes se descartan solas, así que una planilla con columna A de
+margen o con filas en blanco entre bloques se lee igual.
+
+Antes de guardar el vínculo hay dos botones que evitan configurar a ciegas:
+**Ver pestañas**, que lista los nombres reales de las solapas de la hoja, y
+**Probar sin guardar**, que lee el rango y dice cuántas filas y columnas trajo
+sin tocar el bloque.
+
+**Cuándo se actualiza.** Mientras el informe está en borrador: con el botón
+«Actualizar ahora» de cada bloque, con «Actualizar desde las planillas» del
+informe entero, y una vez por día con la tarea programada de `vercel.json`.
+**Al publicarlo queda congelado**, porque un informe publicado es el registro de
+lo que se presentó en esa reunión: si sus números cambiaran solos, nadie podría
+abrir el informe de julio y ver lo que Dirección vio en julio.
+
+### Las tres fuentes que se evaluaron
+
+Los tres cuadros se cargan a mano. Queda anotado lo que se averiguó de cada
+uno, para no volver a investigarlo si algún día se enciende el vínculo:
+
+| Fuente | Qué se sabe |
+| --- | --- |
+| **Control presupuestario** | Hoja de Google nativa. El cuadro que va al informe es «Presupuesto por cuenta contable — año completo», en la pestaña *Dashboard*: once filas de números que se recalculan solos. Es el único de los tres donde el vínculo se pagaría |
+| **Plan de pautas** | Hoja de Google nativa, con una pestaña por empresa. Su columna «Estado» **no existe como texto**: está en el color de la celda, y la API de Sheets devuelve valores, no colores. Vincular medio cuadro traería la complejidad de las dos formas y las ventajas de ninguna |
+| **NPS** | No sale de una planilla. El sitio `ti-camping44.github.io/NPS-REPORTE` no guarda datos: consulta un Apps Script propio, de acceso público, que devuelve el resumen en JSON (puntaje NPS, total de respuestas, promotores, pasivos y detractores con su porcentaje). Son dos números por período: una integración propia no se justifica |
+
+**Pendiente de aclarar con Marketing:** el informe del 14/08 rotula «NPS Camping
+44 · 93 %», pero el NPS es un puntaje de −100 a +100, no un porcentaje. En el
+tablero de NPS lo que sí es porcentaje es la proporción de promotores. Antes de
+automatizar ese número —si algún día se hace— hay que definir cuál de los dos
+quiere ver Dirección.
+
+### Puesta en marcha
+
+1. En Google Cloud Console, *APIs y servicios → Biblioteca* → habilitar
+   **Google Sheets API**.
+2. *Credenciales → Crear credenciales → Cuenta de servicio*. Crear una clave
+   **JSON** y guardarla.
+3. Compartir cada planilla con el correo de esa cuenta —el que termina en
+   `.iam.gserviceaccount.com`— con permiso de **Lector**.
+4. Cargar el JSON en `GOOGLE_CUENTA_SERVICIO` y un secreto cualquiera en
+   `CRON_SECRET`.
 
 ## Modelo de datos
 
