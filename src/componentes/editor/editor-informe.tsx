@@ -1,37 +1,31 @@
 'use client';
 
-/** Barra de acciones del informe y lista de bloques en edicion. */
+/** Barra de acciones del informe, encabezado y lista de secciones en edicion. */
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Aviso } from '@/componentes/aviso';
 import { BotonAccion } from '@/componentes/boton-accion';
-import { Selector } from '@/componentes/campos';
-import { EditorBloque } from '@/componentes/editor/editor-bloque';
-import { EstadoVacio } from '@/componentes/tarjeta';
-import { agregarBloque } from '@/acciones/bloques';
-import { eliminarInforme, publicarInforme, volverInformeABorrador } from '@/acciones/informes';
-import {
-  DESCRIPCIONES_TIPO_BLOQUE,
-  ETIQUETAS_TIPO_BLOQUE,
-  TIPOS_BLOQUE,
-  type TipoBloque,
-} from '@/lib/bloques';
-import type { Bloque, Informe } from '@/lib/tipos';
+import { CampoTexto, Etiquetado } from '@/componentes/campos';
+import { EditorEncabezado } from '@/componentes/editor/editor-encabezado';
+import { EditorSeccion } from '@/componentes/editor/editor-seccion';
+import { CabeceraTarjeta, CuerpoTarjeta, Tarjeta } from '@/componentes/tarjeta';
+import { cambiarEstadoDelInforme, eliminarInforme } from '@/acciones/informes';
+import { agregarSeccion } from '@/acciones/secciones';
+import type { InformeCompleto } from '@/lib/tipos';
 
 export function EditorInforme({
   informe,
-  bloques,
   empresaSlug,
 }: {
-  informe: Informe;
-  bloques: Bloque[];
+  informe: InformeCompleto;
   empresaSlug: string;
 }) {
   const router = useRouter();
-  const [tipoNuevo, establecerTipoNuevo] = useState<TipoBloque>('indicadores');
   const [mensaje, establecerMensaje] = useState<string | null>(null);
+  const [tituloNuevo, establecerTituloNuevo] = useState('');
+  const [etiquetaNueva, establecerEtiquetaNueva] = useState('');
 
   return (
     <div className="space-y-4">
@@ -50,7 +44,7 @@ export function EditorInforme({
         <div className="flex flex-wrap items-center gap-2">
           {informe.estado === 'borrador' ? (
             <BotonAccion
-              accion={() => publicarInforme(informe.id)}
+              accion={() => cambiarEstadoDelInforme({ informeId: informe.id, estado: 'publicado' })}
               etiquetaCargando="Publicando…"
               variante="primario"
               alTerminar={(resultado) => {
@@ -64,7 +58,7 @@ export function EditorInforme({
             </BotonAccion>
           ) : (
             <BotonAccion
-              accion={() => volverInformeABorrador(informe.id)}
+              accion={() => cambiarEstadoDelInforme({ informeId: informe.id, estado: 'borrador' })}
               etiquetaCargando="Cambiando…"
               confirmacion="¿Devolver el informe a borrador? Dirección va a verlo marcado como borrador hasta que lo vuelva a publicar."
               alTerminar={(resultado) => {
@@ -79,15 +73,10 @@ export function EditorInforme({
           )}
 
           <BotonAccion
-            accion={() => eliminarInforme(informe.id)}
+            accion={() => eliminarInforme({ informeId: informe.id, slugEmpresa: empresaSlug })}
             etiquetaCargando="Eliminando…"
             variante="peligro"
-            confirmacion="¿Eliminar este informe con todos sus bloques? No se puede deshacer."
-            alTerminar={(resultado) => {
-              if (resultado.exito) {
-                router.push(`/${empresaSlug}/historial`);
-              }
-            }}
+            confirmacion="¿Eliminar este informe con todas sus secciones y bloques? No se puede deshacer."
           >
             Eliminar informe
           </BotonAccion>
@@ -96,54 +85,61 @@ export function EditorInforme({
 
       {mensaje !== null ? <Aviso tono="exito">{mensaje}</Aviso> : null}
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-borde bg-elevado px-4 py-3">
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-atenuado">Agregar un bloque</span>
-          <Selector
-            className="w-auto min-w-48"
-            value={tipoNuevo}
-            onChange={(evento) => establecerTipoNuevo(evento.target.value as TipoBloque)}
-          >
-            {TIPOS_BLOQUE.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {ETIQUETAS_TIPO_BLOQUE[tipo]}
-              </option>
-            ))}
-          </Selector>
-        </label>
+      <EditorEncabezado informe={informe} />
 
-        <BotonAccion
-          accion={() => agregarBloque({ informeId: informe.id, tipo: tipoNuevo })}
-          etiquetaCargando="Agregando…"
-          alTerminar={(resultado) => {
-            if (resultado.exito) router.refresh();
-          }}
-        >
-          Agregar
-        </BotonAccion>
-
-        <p className="max-w-prose text-micro leading-relaxed text-atenuado">
-          {DESCRIPCIONES_TIPO_BLOQUE[tipoNuevo]}
-        </p>
-      </div>
-
-      {bloques.length === 0 ? (
-        <EstadoVacio
-          titulo="El informe todavía no tiene bloques"
-          detalle="Elija un tipo de bloque arriba y agréguelo. Un informe típico abre con indicadores, sigue con hitos y cierra con las decisiones pendientes."
+      {informe.secciones.map((seccion, indice) => (
+        <EditorSeccion
+          key={seccion.id}
+          seccion={seccion}
+          esPrimera={indice === 0}
+          esUltima={indice === informe.secciones.length - 1}
         />
-      ) : (
-        <div className="space-y-4">
-          {bloques.map((bloque, indice) => (
-            <EditorBloque
-              key={bloque.id}
-              bloque={bloque}
-              esPrimero={indice === 0}
-              esUltimo={indice === bloques.length - 1}
-            />
-          ))}
-        </div>
-      )}
+      ))}
+
+      <Tarjeta>
+        <CabeceraTarjeta
+          titulo="Agregar una sección"
+          descripcion="Cada sección es una pestaña arriba del informe."
+        />
+        <CuerpoTarjeta>
+          <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]">
+            <Etiquetado etiqueta="Título">
+              <CampoTexto
+                value={tituloNuevo}
+                placeholder="Proyectos"
+                onChange={(evento) => establecerTituloNuevo(evento.target.value)}
+              />
+            </Etiquetado>
+
+            <Etiquetado etiqueta="Etiqueta" ayuda="Opcional: «Outdoor · Defensa».">
+              <CampoTexto
+                value={etiquetaNueva}
+                onChange={(evento) => establecerEtiquetaNueva(evento.target.value)}
+              />
+            </Etiquetado>
+
+            <BotonAccion
+              accion={() =>
+                agregarSeccion({
+                  informeId: informe.id,
+                  titulo: tituloNuevo,
+                  etiqueta: etiquetaNueva,
+                })
+              }
+              etiquetaCargando="Agregando…"
+              alTerminar={(resultado) => {
+                if (resultado.exito) {
+                  establecerTituloNuevo('');
+                  establecerEtiquetaNueva('');
+                  router.refresh();
+                }
+              }}
+            >
+              Agregar sección
+            </BotonAccion>
+          </div>
+        </CuerpoTarjeta>
+      </Tarjeta>
     </div>
   );
 }

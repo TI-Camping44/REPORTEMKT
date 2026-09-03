@@ -1,215 +1,279 @@
 'use server';
 
-/**
- * Escrituras sobre informes.
- *
- * Este archivo solo exporta funciones asincronas, que es lo unico que admite un
- * modulo "use server". Las constantes y las reglas sincronas viven en src/lib/.
- *
- * Todas validan antes de escribir. La base tiene ademas sus restricciones
- * CHECK: la validacion de aca es la que explica el problema en espanol, la de
- * la base es la que garantiza que no entre un dato invalido por otra via.
- */
+/** Alta, edicion y publicacion de informes. */
 
-import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
-import { TIPOS_PERIODO, type TipoPeriodo } from '@/lib/constantes';
+import { SECCIONES_POR_DEFECTO } from '@/lib/secciones';
 import { mensajeDeError } from '@/lib/errores';
-import { calcularPeriodo, esFechaValida } from '@/lib/periodos';
+import { esFechaValida } from '@/lib/periodos';
 import { requerirEditor } from '@/lib/sesion';
 import { crearClienteDeServidor } from '@/lib/supabase/servidor';
-import type { Bloque, Informe, ResultadoAccion } from '@/lib/tipos';
+import { revalidarInformes } from '@/lib/revalidacion';
+import { TIPOS_PERIODO } from '@/lib/constantes';
+import type { Bloque, ResultadoAccion, Seccion } from '@/lib/tipos';
 
-export async function crearInforme(datos: {
-  empresaId: string;
-  empresaSlug: string;
+type DatosDeEncabezado = {
+  titulo: string;
   periodoTipo: string;
   periodoInicio: string;
-  duplicarDe?: string | null;
-}): Promise<ResultadoAccion> {
-  const sesion = await requerirEditor();
+  periodoFin: string;
+  periodoEtiqueta: string;
+  reunionFecha: string;
+  reunionHora: string;
+  presenta: string;
+};
 
+/**
+ * Valida el encabezado antes de escribir.
+ *
+ * La base tiene sus restricciones CHECK, pero el error de PostgreSQL no le dice
+ * a nadie que corregir. Estos mensajes si.
+ */
+function validarEncabezado(datos: DatosDeEncabezado): string | null {
+  if (datos.titulo.trim() === '') return 'Escriba el título del informe.';
   if (!(TIPOS_PERIODO as readonly string[]).includes(datos.periodoTipo)) {
-    return { exito: false, error: 'Elija si el informe es quincenal o mensual.' };
+    return 'Elija si el período es quincenal o mensual.';
   }
-
-  if (!esFechaValida(datos.periodoInicio)) {
-    return { exito: false, error: 'Elija un período válido.' };
+  if (!esFechaValida(datos.periodoInicio)) return 'La fecha de inicio del período no es válida.';
+  if (!esFechaValida(datos.periodoFin)) return 'La fecha de fin del período no es válida.';
+  if (datos.periodoFin < datos.periodoInicio) {
+    return 'La fecha de fin del período no puede ser anterior a la de inicio.';
   }
+  if (!esFechaValida(datos.reunionFecha)) return 'Indique la fecha de la reunión.';
+  if (datos.periodoEtiqueta.trim() === '') {
+    return 'Escriba el período tal como se presenta, por ejemplo «julio 2026 + avances al 14/08».';
+  }
+  return null;
+}
 
-  const periodo = calcularPeriodo(datos.periodoTipo as TipoPeriodo, datos.periodoInicio);
+export async function crearInforme(datos: DatosDeEncabezado & {
+  empresaId: string;
+  /** Informe del que se copian secciones y bloques. Vacio: se arranca con las secciones por defecto. */
+  duplicarDe?: string;
+}): Promise<ResultadoAccion> {
+  const { usuario } = await requerirEditor();
+
+  const problema = validarEncabezado(datos);
+  if (problema !== null) return { exito: false, error: problema };
+
   const supabase = crearClienteDeServidor();
 
-  const { data: informeNuevo, error } = await supabase
+  const { data: creado, error } = await supabase
     .from('informes')
     .insert({
       empresa_id: datos.empresaId,
-      periodo_tipo: periodo.tipo,
-      periodo_inicio: periodo.inicio,
-      periodo_fin: periodo.fin,
+      titulo: datos.titulo.trim(),
+      periodo_tipo: datos.periodoTipo,
+      periodo_inicio: datos.periodoInicio,
+      periodo_fin: datos.periodoFin,
+      periodo_etiqueta: datos.periodoEtiqueta.trim(),
+      reunion_fecha: datos.reunionFecha,
+      reunion_hora: datos.reunionHora.trim(),
+      presenta: datos.presenta.trim(),
       estado: 'borrador',
-      creado_por: sesion.usuario.id,
+      creado_por: usuario.id,
     })
     .select('id')
     .single();
 
-  if (error !== null || informeNuevo === null) {
+  if (error !== null) {
     return { exito: false, error: mensajeDeError(error, 'No se pudo crear el informe.') };
   }
 
-  const identificador = (informeNuevo as { id: string }).id;
+  const informeId = (creado as { id: string }).id;
 
-  // Duplicar el informe anterior es lo que hace sostenible la carga: entre una
-  // quincena y la siguiente cambia una parte del contenido, no todo.
-  if (datos.duplicarDe !== undefined && datos.duplicarDe !== null && datos.duplicarDe !== '') {
-    const { data: bloquesOrigen, error: errorLectura } = await supabase
-      .from('bloques')
-      .select('tipo, orden, titulo, contenido')
-      .eq('informe_id', datos.duplicarDe)
-      .order('orden', { ascending: true });
+  const copiado =
+    datos.duplicarDe !== undefined && datos.duplicarDe !== ''
+      ? await copiarContenido(datos.duplicarDe, informeId)
+      : await crearSeccionesPorDefecto(informeId);
 
-    if (errorLectura !== null) {
-      return {
-        exito: true,
-        id: identificador,
-        mensaje: 'Se creó el informe, pero no se pudieron copiar los bloques del informe anterior.',
-      };
-    }
-
-    const bloques = (bloquesOrigen as Array<Pick<Bloque, 'tipo' | 'orden' | 'titulo' | 'contenido'>> | null) ?? [];
-
-    if (bloques.length > 0) {
-      const { error: errorCopia } = await supabase.from('bloques').insert(
-        bloques.map((bloque) => ({
-          informe_id: identificador,
-          tipo: bloque.tipo,
-          orden: bloque.orden,
-          titulo: bloque.titulo,
-          contenido: bloque.contenido,
-        })),
-      );
-
-      if (errorCopia !== null) {
-        return {
-          exito: true,
-          id: identificador,
-          mensaje: 'Se creó el informe, pero no se pudieron copiar los bloques del informe anterior.',
-        };
-      }
-    }
+  if (copiado !== null) {
+    return { exito: false, error: copiado };
   }
 
-  revalidatePath(`/${datos.empresaSlug}`);
-  revalidatePath(`/${datos.empresaSlug}/historial`);
-
-  return { exito: true, id: identificador, mensaje: 'Informe creado.' };
+  revalidarInformes();
+  return { exito: true, id: informeId, mensaje: 'Informe creado.' };
 }
 
-async function cambiarEstado(
-  informeId: string,
-  estado: 'borrador' | 'publicado',
+/** Secciones iniciales de un informe que no duplica a ninguno. */
+async function crearSeccionesPorDefecto(informeId: string): Promise<string | null> {
+  const supabase = crearClienteDeServidor();
+
+  const filas = SECCIONES_POR_DEFECTO.map((seccion, indice) => ({
+    informe_id: informeId,
+    clave: seccion.clave,
+    titulo: seccion.titulo,
+    etiqueta: seccion.etiqueta,
+    orden: indice + 1,
+  }));
+
+  const { error } = await supabase.from('secciones').insert(filas);
+  if (error !== null) {
+    return mensajeDeError(error, 'El informe se creó, pero no se pudieron crear sus secciones.');
+  }
+
+  return null;
+}
+
+/**
+ * Copia secciones y bloques de un informe a otro.
+ *
+ * Duplicar importa mas de lo que parece: entre una reunion y la siguiente
+ * cambia una parte del contenido, no todo. Si hubiera que escribir el informe
+ * entero cada vez, en dos meses se vuelve al PDF.
+ */
+async function copiarContenido(origenId: string, destinoId: string): Promise<string | null> {
+  const supabase = crearClienteDeServidor();
+
+  const { data: seccionesCrudas } = await supabase
+    .from('secciones')
+    .select('id, informe_id, clave, titulo, etiqueta, orden')
+    .eq('informe_id', origenId)
+    .order('orden', { ascending: true });
+
+  const secciones = (seccionesCrudas as Seccion[] | null) ?? [];
+  if (secciones.length === 0) {
+    return crearSeccionesPorDefecto(destinoId);
+  }
+
+  const { data: creadasCrudas, error: errorSecciones } = await supabase
+    .from('secciones')
+    .insert(
+      secciones.map((seccion) => ({
+        informe_id: destinoId,
+        clave: seccion.clave,
+        titulo: seccion.titulo,
+        etiqueta: seccion.etiqueta,
+        orden: seccion.orden,
+      })),
+    )
+    .select('id, clave');
+
+  if (errorSecciones !== null) {
+    return mensajeDeError(errorSecciones, 'El informe se creó, pero no se pudieron copiar sus secciones.');
+  }
+
+  const nuevaPorClave = new Map(
+    ((creadasCrudas as Array<{ id: string; clave: string }> | null) ?? []).map((fila) => [
+      fila.clave,
+      fila.id,
+    ]),
+  );
+  const claveOriginal = new Map(secciones.map((seccion) => [seccion.id, seccion.clave]));
+
+  const { data: bloquesCrudos } = await supabase
+    .from('bloques')
+    .select('id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido')
+    .in('seccion_id', secciones.map((seccion) => seccion.id))
+    .order('orden', { ascending: true });
+
+  const bloques = (bloquesCrudos as Bloque[] | null) ?? [];
+  if (bloques.length === 0) return null;
+
+  const filas = bloques.flatMap((bloque) => {
+    const clave = claveOriginal.get(bloque.seccion_id);
+    const seccionNueva = clave === undefined ? undefined : nuevaPorClave.get(clave);
+    if (seccionNueva === undefined) return [];
+
+    return [
+      {
+        seccion_id: seccionNueva,
+        tipo: bloque.tipo,
+        orden: bloque.orden,
+        titulo: bloque.titulo,
+        accion_titulo: bloque.accion_titulo,
+        accion_url: bloque.accion_url,
+        // La agenda arranca sin tildar: los temas del período anterior ya se trataron.
+        contenido: bloque.tipo === 'agenda' ? destildarAgenda(bloque.contenido) : bloque.contenido,
+      },
+    ];
+  });
+
+  const { error } = await supabase.from('bloques').insert(filas);
+  if (error !== null) {
+    return mensajeDeError(error, 'Las secciones se copiaron, pero no sus bloques.');
+  }
+
+  return null;
+}
+
+function destildarAgenda(contenido: unknown): unknown {
+  if (typeof contenido !== 'object' || contenido === null) return contenido;
+  const agenda = contenido as { puntos?: Array<Record<string, unknown>> };
+  if (!Array.isArray(agenda.puntos)) return contenido;
+
+  return { ...agenda, puntos: agenda.puntos.map((punto) => ({ ...punto, tratado: false })) };
+}
+
+export async function guardarEncabezado(
+  datos: DatosDeEncabezado & { informeId: string },
 ): Promise<ResultadoAccion> {
   await requerirEditor();
 
+  const problema = validarEncabezado(datos);
+  if (problema !== null) return { exito: false, error: problema };
+
   const supabase = crearClienteDeServidor();
-
-  const { data: informe } = await supabase
+  const { error } = await supabase
     .from('informes')
-    .select('id, empresa_id, estado')
-    .eq('id', informeId)
-    .maybeSingle();
+    .update({
+      titulo: datos.titulo.trim(),
+      periodo_tipo: datos.periodoTipo,
+      periodo_inicio: datos.periodoInicio,
+      periodo_fin: datos.periodoFin,
+      periodo_etiqueta: datos.periodoEtiqueta.trim(),
+      reunion_fecha: datos.reunionFecha,
+      reunion_hora: datos.reunionHora.trim(),
+      presenta: datos.presenta.trim(),
+    })
+    .eq('id', datos.informeId);
 
-  if (informe === null) {
-    return { exito: false, error: 'No se encontró el informe. Puede haber sido eliminado.' };
+  if (error !== null) {
+    return { exito: false, error: mensajeDeError(error, 'No se pudo guardar el encabezado.') };
   }
 
-  if (estado === 'publicado') {
-    const { count } = await supabase
-      .from('bloques')
-      .select('id', { count: 'exact', head: true })
-      .eq('informe_id', informeId);
+  revalidarInformes();
+  return { exito: true, mensaje: 'Encabezado guardado.' };
+}
 
-    if ((count ?? 0) === 0) {
-      return {
-        exito: false,
-        error: 'El informe no tiene ningún bloque cargado. Agregue contenido antes de publicarlo.',
-      };
-    }
-  }
+export async function cambiarEstadoDelInforme(datos: {
+  informeId: string;
+  estado: 'borrador' | 'publicado';
+}): Promise<ResultadoAccion> {
+  await requerirEditor();
 
-  const { error } = await supabase.from('informes').update({ estado }).eq('id', informeId);
+  const supabase = crearClienteDeServidor();
+  const { error } = await supabase
+    .from('informes')
+    .update({ estado: datos.estado })
+    .eq('id', datos.informeId);
 
   if (error !== null) {
     return { exito: false, error: mensajeDeError(error, 'No se pudo cambiar el estado del informe.') };
   }
 
-  const { data: empresa } = await supabase
-    .from('empresas')
-    .select('slug')
-    .eq('id', (informe as Informe).empresa_id)
-    .maybeSingle();
-
-  const slug = (empresa as { slug: string } | null)?.slug;
-  if (slug !== undefined) {
-    revalidatePath(`/${slug}`);
-    revalidatePath(`/${slug}/historial`);
-  }
-  revalidatePath(`/${slug ?? ''}/${informeId}`);
-
+  revalidarInformes();
   return {
     exito: true,
-    mensaje: estado === 'publicado' ? 'Informe publicado.' : 'El informe volvió a borrador.',
+    mensaje: datos.estado === 'publicado' ? 'Informe publicado.' : 'El informe volvió a borrador.',
   };
 }
 
-export async function publicarInforme(informeId: string): Promise<ResultadoAccion> {
-  return cambiarEstado(informeId, 'publicado');
-}
-
-export async function volverInformeABorrador(informeId: string): Promise<ResultadoAccion> {
-  return cambiarEstado(informeId, 'borrador');
-}
-
-export async function eliminarInforme(informeId: string): Promise<ResultadoAccion> {
+export async function eliminarInforme(datos: {
+  informeId: string;
+  /** Slug de la empresa, para volver a su historial despues de borrar. */
+  slugEmpresa: string;
+}): Promise<ResultadoAccion> {
   await requerirEditor();
 
   const supabase = crearClienteDeServidor();
-
-  const { data: informe } = await supabase
-    .from('informes')
-    .select('id, empresa_id, estado')
-    .eq('id', informeId)
-    .maybeSingle();
-
-  if (informe === null) {
-    return { exito: false, error: 'No se encontró el informe. Puede haber sido eliminado.' };
-  }
-
-  if ((informe as Informe).estado === 'publicado') {
-    return {
-      exito: false,
-      error:
-        'Un informe publicado es la foto de su período y no se elimina. Si hay que corregirlo, primero devuélvalo a borrador.',
-    };
-  }
-
-  const { error } = await supabase.from('informes').delete().eq('id', informeId);
+  const { error } = await supabase.from('informes').delete().eq('id', datos.informeId);
 
   if (error !== null) {
     return { exito: false, error: mensajeDeError(error, 'No se pudo eliminar el informe.') };
   }
 
-  const { data: empresa } = await supabase
-    .from('empresas')
-    .select('slug')
-    .eq('id', (informe as Informe).empresa_id)
-    .maybeSingle();
-
-  const slug = (empresa as { slug: string } | null)?.slug;
-  if (slug !== undefined) {
-    revalidatePath(`/${slug}`);
-    revalidatePath(`/${slug}/historial`);
-  }
-
-  return { exito: true, mensaje: 'Informe eliminado.' };
+  revalidarInformes();
+  redirect(`/${datos.slugEmpresa}/historial`);
 }

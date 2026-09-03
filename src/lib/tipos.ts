@@ -36,24 +36,47 @@ export type Tablero = {
   activo: boolean;
 };
 
+/**
+ * Un informe por empresa y por reunion con Gerencia General.
+ *
+ * `periodo_etiqueta` es lo que se muestra ("julio 2026 + avances al 14/08");
+ * `periodo_inicio` y `periodo_fin` quedan para ordenar el historial.
+ */
 export type Informe = {
   id: string;
   empresa_id: string;
+  titulo: string;
   periodo_tipo: TipoPeriodo;
   periodo_inicio: string;
   periodo_fin: string;
+  periodo_etiqueta: string;
+  reunion_fecha: string;
+  reunion_hora: string;
+  presenta: string;
   estado: EstadoInforme;
   creado_por: string | null;
   creado_en: string;
   actualizado_en: string;
 };
 
-export type Bloque = {
+/** Pestana del informe: Resumen, la campana en curso, Equipo, Proyectos. */
+export type Seccion = {
   id: string;
   informe_id: string;
+  clave: string;
+  titulo: string;
+  etiqueta: string;
+  orden: number;
+};
+
+export type Bloque = {
+  id: string;
+  seccion_id: string;
   tipo: TipoBloque;
   orden: number;
   titulo: string;
+  accion_titulo: string;
+  accion_url: string;
   contenido: ContenidoBloque;
 };
 
@@ -65,9 +88,17 @@ export type Enlace = {
   orden: number;
 };
 
-/** Informe con los datos que la vista necesita mostrar de una sola consulta. */
-export type InformeConEmpresa = Informe & {
-  empresas: Pick<Empresa, 'id' | 'slug' | 'nombre' | 'color'> | null;
+/** Seccion con sus bloques ya ordenados. */
+export type SeccionCompleta = Seccion & {
+  bloques: Bloque[];
+};
+
+/** El informe con todo lo que hace falta para dibujarlo. */
+export type InformeCompleto = Informe & {
+  empresa: Empresa | null;
+  secciones: SeccionCompleta[];
+  tableros: Tablero[];
+  enlaces: Enlace[];
 };
 
 /**

@@ -5,9 +5,8 @@ import { notFound } from 'next/navigation';
 import { EnlaceBoton } from '@/componentes/boton';
 import { EtiquetaEstadoInforme } from '@/componentes/etiqueta';
 import { CabeceraTarjeta, EstadoVacio, Tarjeta } from '@/componentes/tarjeta';
-import { ETIQUETAS_TIPO_PERIODO } from '@/lib/constantes';
 import { listarInformesDeEmpresa, obtenerEmpresaPorSlug, obtenerNombresDeUsuarios } from '@/lib/datos';
-import { formatearFechaHora } from '@/lib/formato';
+import { formatearFecha, formatearFechaHora } from '@/lib/formato';
 import { rotularPeriodo, rotularRango } from '@/lib/periodos';
 import { puedeEditar } from '@/lib/permisos';
 import { requerirUsuario } from '@/lib/sesion';
@@ -30,7 +29,7 @@ export default async function PaginaDeHistorial({ params }: { params: { empresa:
   );
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-contenido space-y-4 px-4 py-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Historial de informes</h1>
@@ -61,10 +60,10 @@ export default async function PaginaDeHistorial({ params }: { params: { empresa:
                     Período
                   </th>
                   <th scope="col" className="px-4 py-2 text-start font-medium uppercase tracking-wide text-atenuado">
-                    Tipo
+                    Reunión
                   </th>
                   <th scope="col" className="px-4 py-2 text-start font-medium uppercase tracking-wide text-atenuado">
-                    Rango
+                    Rango del período
                   </th>
                   <th scope="col" className="px-4 py-2 text-start font-medium uppercase tracking-wide text-atenuado">
                     Estado
@@ -85,11 +84,13 @@ export default async function PaginaDeHistorial({ params }: { params: { empresa:
                   <tr key={informe.id} className="hover:bg-superficie">
                     <td className="whitespace-nowrap px-4 py-2 font-medium text-texto">
                       <Link href={`/${empresa.slug}/${informe.id}`} className="hover:text-primario-texto">
-                        {rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio)}
+                        {informe.periodo_etiqueta !== ''
+                          ? informe.periodo_etiqueta
+                          : rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio)}
                       </Link>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-atenuado">
-                      {ETIQUETAS_TIPO_PERIODO[informe.periodo_tipo]}
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-atenuado">
+                      {formatearFecha(informe.reunion_fecha)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-2 tabular-nums text-atenuado">
                       {rotularRango(informe.periodo_inicio, informe.periodo_fin)}

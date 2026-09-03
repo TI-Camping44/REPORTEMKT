@@ -47,7 +47,9 @@ export function SelectorPeriodo({
       >
         {informes.map((informe) => (
           <option key={informe.id} value={informe.id}>
-            {rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio)}
+            {informe.periodo_etiqueta !== ''
+              ? informe.periodo_etiqueta
+              : rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio)}
             {informe.estado === 'borrador' ? ` · ${ETIQUETAS_ESTADO_INFORME.borrador}` : ''}
           </option>
         ))}

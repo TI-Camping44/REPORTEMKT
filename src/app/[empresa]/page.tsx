@@ -5,11 +5,9 @@ import { EnlaceBoton } from '@/componentes/boton';
 import { EstadoVacio } from '@/componentes/tarjeta';
 import { VistaInforme } from '@/componentes/vista-informe';
 import {
-  listarBloques,
-  listarEnlaces,
   listarInformesDeEmpresa,
-  listarTableros,
   obtenerEmpresaPorSlug,
+  obtenerInformeCompleto,
   obtenerNombresDeUsuarios,
 } from '@/lib/datos';
 import { puedeEditar } from '@/lib/permisos';
@@ -43,41 +41,39 @@ export default async function PaginaDeEmpresa({ params }: { params: { empresa: s
     ? informes
     : informes.filter((informe) => informe.estado === 'publicado');
 
-  const informe = visibles.find((candidato) => candidato.estado === 'publicado') ?? visibles[0];
+  const elegido = visibles.find((candidato) => candidato.estado === 'publicado') ?? visibles[0];
 
-  if (informe === undefined) {
+  if (elegido === undefined) {
     return (
-      <EstadoVacio
-        titulo={`Todavía no hay informes de ${empresa.nombre}`}
-        detalle="El primer informe se crea eligiendo un período. Después se puede duplicar para el período siguiente."
-        accion={
-          puedeEditar(usuario.rol) ? (
-            <EnlaceBoton href={`/${empresa.slug}/nuevo`} variante="primario">
-              Crear el primer informe
-            </EnlaceBoton>
-          ) : undefined
-        }
-      />
+      <div className="mx-auto max-w-contenido px-4 py-6">
+        <EstadoVacio
+          titulo={`Todavía no hay informes de ${empresa.nombre}`}
+          detalle="El primer informe se crea eligiendo la reunión que cubre. Después se puede duplicar para la siguiente."
+          accion={
+            puedeEditar(usuario.rol) ? (
+              <EnlaceBoton href={`/${empresa.slug}/nuevo`} variante="primario">
+                Crear el primer informe
+              </EnlaceBoton>
+            ) : undefined
+          }
+        />
+      </div>
     );
   }
 
-  const [bloques, tableros, enlaces, nombres] = await Promise.all([
-    listarBloques(informe.id),
-    listarTableros(empresa.id),
-    listarEnlaces(empresa.id),
-    obtenerNombresDeUsuarios(informe.creado_por !== null ? [informe.creado_por] : []),
+  const [informe, nombres] = await Promise.all([
+    obtenerInformeCompleto(elegido.id),
+    obtenerNombresDeUsuarios(elegido.creado_por !== null ? [elegido.creado_por] : []),
   ]);
+
+  if (informe === null) notFound();
 
   return (
     <VistaInforme
-      empresa={empresa}
       informe={informe}
-      informes={visibles}
-      bloques={bloques}
-      tableros={tableros}
-      enlaces={enlaces}
-      usuario={usuario}
-      nombreDeQuienCreo={informe.creado_por !== null ? nombres.get(informe.creado_por) ?? null : null}
+      informesDeLaEmpresa={visibles}
+      puedeEditar={puedeEditar(usuario.rol)}
+      creadoPor={informe.creado_por !== null ? nombres.get(informe.creado_por) ?? null : null}
     />
   );
 }

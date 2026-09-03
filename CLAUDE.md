@@ -71,7 +71,10 @@ antes.
 ## Arquitectura
 
 - **Componentes de servidor** consultan datos. Es el modo por defecto. Las
-  consultas viven en `src/lib/datos.ts`.
+  consultas viven en `src/lib/datos.ts`. `obtenerInformeCompleto` trae el
+  informe con sus secciones, bloques, tableros y enlaces en varias consultas y
+  no en una anidada: PostgREST devuelve las relaciones anidadas sin garantía de
+  orden, y acá el orden de secciones y bloques es lo que define el documento.
 - **Componentes de cliente** (`"use client"`) manejan interacción y estado.
   Reciben los datos por propiedades; no consultan Supabase salvo para
   autenticación.
@@ -113,6 +116,14 @@ Migraciones en `supabase/migrations/`, con el nombre
 `AAAAMMDDHHMMSS_descripcion_en_espanol.sql`, aplicadas en orden alfabético. Cada
 archivo abre con un encabezado que explica qué agrega y por qué.
 
+**Estructura del informe:** `informes` → `secciones` → `bloques`. Hay un informe
+por empresa y por reunión con Gerencia General; cada informe se organiza en
+secciones, que son las pestañas de arriba, y los bloques cuelgan de una sección.
+`informes.reunion_fecha` es lo que identifica al informe junto con la empresa:
+el período que cubre lo decide cada reunión y no siempre encaja en una quincena
+o un mes, por eso `periodo_etiqueta` se escribe completo («julio 2026 + avances
+al 14/08») y las fechas de período solo ordenan el historial.
+
 **Una migración aplicada en producción no se edita: los cambios van en una
 migración nueva.**
 
@@ -132,10 +143,21 @@ DEFINER` con `search_path = public`; sin eso, consultar `usuarios` dentro de la
 política de `usuarios` provoca recursión infinita.
 
 La forma del `jsonb` de cada tipo de bloque se documenta en **dos** lugares que
-tienen que coincidir: el encabezado de la migración que crea `bloques` y
-`src/lib/bloques.ts`. Si cambia una, cambia la otra en el mismo commit. Un
-`jsonb` sin forma escrita en algún lado es un campo libre que en seis meses
-nadie sabe leer.
+tienen que coincidir: el encabezado de
+`20260903170200_documentar_bloques_y_agregar_accion.sql` y `src/lib/bloques.ts`.
+Si cambia una, cambia la otra en el mismo commit. Un `jsonb` sin forma escrita en
+algún lado es un campo libre que en seis meses nadie sabe leer.
+
+Los diez tipos de bloque: `indicadores`, `agenda`, `linea_tiempo`, `alertas`,
+`hitos`, `tabla`, `calendario`, `fichas`, `texto`, `enlaces`. Los chips de color
+no tienen niveles fijos: el texto lo escribe Marketing («Aprobada», «Decidir ya»,
+«Pausado») y el `tono` decide el color, entre `ok`, `curso`, `pendiente`,
+`riesgo`, `pausa` y `neutro`. Todo bloque puede llevar además un botón a un
+documento externo en su encabezado (`accion_titulo` y `accion_url`).
+
+Tildar un punto de la agenda **se guarda**: es la constancia de que el tema se
+trató. Como escribir exige rol de editor, quien presenta tilda y Dirección lo ve
+marcado sin poder cambiarlo.
 
 ## El iframe de Looker Studio
 
