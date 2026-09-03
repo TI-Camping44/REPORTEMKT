@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { EditorInforme } from '@/componentes/editor/editor-informe';
 import { EtiquetaEstadoInforme } from '@/componentes/etiqueta';
 import { obtenerEmpresaPorSlug, obtenerInformeCompleto } from '@/lib/datos';
+import { hayCredencialDePlanillas } from '@/lib/entorno';
 import { formatearFecha, formatearFechaHora } from '@/lib/formato';
 import { rotularPeriodo } from '@/lib/periodos';
 import { requerirEditor } from '@/lib/sesion';
@@ -57,7 +58,11 @@ export default async function PaginaDeEdicion({
         </Link>
       </header>
 
-      <EditorInforme informe={informe} empresaSlug={empresa.slug} />
+      <EditorInforme
+        informe={informe}
+        empresaSlug={empresa.slug}
+        planillasDisponibles={hayCredencialDePlanillas()}
+      />
     </div>
   );
 }

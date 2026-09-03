@@ -161,6 +161,14 @@ marcado sin poder cambiarlo.
 
 ## Bloques vinculados a una planilla
 
+**Hoy está apagado y es correcto que lo esté.** La empresa decidió no crear la
+cuenta de servicio de Google, así que `GOOGLE_CUENTA_SERVICIO` está vacía y
+`hayCredencialDePlanillas()` devuelve falso: la opción no se dibuja en la
+edición y todos los cuadros se cargan a mano. **No quite este código** para
+«limpiar»: encenderlo es cargar una variable de entorno, y la decisión puede
+cambiar. Un bloque que ya estuviera vinculado sí se sigue mostrando, para que
+se vea de dónde vienen sus datos y se pueda desvincular.
+
 Un bloque de `tabla` o de `indicadores` puede leer su contenido de un rango de
 Google Sheets (`fuente = 'planilla'`). Los demás tipos no: la agenda, los hitos,
 las alertas y los pendientes de Dirección son criterio de Marketing, no un dato

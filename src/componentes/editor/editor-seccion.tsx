@@ -24,11 +24,13 @@ export function EditorSeccion({
   esPrimera,
   esUltima,
   informePublicado,
+  planillasDisponibles,
 }: {
   seccion: SeccionCompleta;
   esPrimera: boolean;
   esUltima: boolean;
   informePublicado: boolean;
+  planillasDisponibles: boolean;
 }) {
   const router = useRouter();
   const [titulo, establecerTitulo] = useState(seccion.titulo);
@@ -139,6 +141,7 @@ export function EditorSeccion({
                 esPrimero={indice === 0}
                 esUltimo={indice === seccion.bloques.length - 1}
                 informePublicado={informePublicado}
+                planillasDisponibles={planillasDisponibles}
               />
             ))}
           </div>

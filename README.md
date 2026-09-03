@@ -177,9 +177,15 @@ distintos agrega una ida y vuelta a cada consulta.
 
 ## Bloques vinculados a una planilla
 
-Tres cuadros del informe —planificación de pautas, control presupuestario y
-NPS— se copiaban a mano desde una planilla en cada reunión. Ahora pueden quedar
-vinculados a un rango de Google Sheets y llenarse solos.
+> **Hoy está apagado.** La aplicación puede leer un cuadro directamente de una
+> hoja de Google, pero eso necesita una credencial de Google que la empresa
+> decidió no crear por ahora. Mientras `GOOGLE_CUENTA_SERVICIO` esté vacía, la
+> opción **no aparece** en la pantalla de edición y todos los cuadros se cargan
+> a mano, con el botón del bloque apuntando a su planilla. Para encenderlo
+> alcanza con crear la cuenta de servicio y cargar la variable: no hay que tocar
+> código.
+
+Un cuadro puede quedar vinculado a un rango de Google Sheets y llenarse solo.
 
 Se configura por bloque, desde la pantalla de edición: se pega la dirección de
 la hoja y el rango (`Pautas!A1:E30`). Solo admiten vínculo los bloques de
@@ -209,13 +215,16 @@ informe entero, y una vez por día con la tarea programada de `vercel.json`.
 lo que se presentó en esa reunión: si sus números cambiaran solos, nadie podría
 abrir el informe de julio y ver lo que Dirección vio en julio.
 
-### Estado de las tres fuentes previstas
+### Las tres fuentes que se evaluaron
 
-| Fuente | Estado |
+Los tres cuadros se cargan a mano. Queda anotado lo que se averiguó de cada
+uno, para no volver a investigarlo si algún día se enciende el vínculo:
+
+| Fuente | Qué se sabe |
 | --- | --- |
-| **Control presupuestario** | **Vinculado.** Pestaña *Dashboard*, cuadro «Presupuesto por cuenta contable — año completo». Son once filas de números que se recalculan solos: es donde el vínculo se paga |
-| **Plan de pautas** | **A mano.** Son seis filas que cambian una vez al mes, y su columna «Estado» solo existe como color de celda en la planilla, no como texto. Vincularlo a medias traería la complejidad de las dos formas y las ventajas de ninguna. El botón del bloque lleva al plan de pautas |
-| **NPS** | **A mano.** No sale de una planilla: el informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio que devuelve el resumen en JSON. Son dos números por período, así que una integración propia no se justifica. El botón del bloque lleva al informe en vivo |
+| **Control presupuestario** | Hoja de Google nativa. El cuadro que va al informe es «Presupuesto por cuenta contable — año completo», en la pestaña *Dashboard*: once filas de números que se recalculan solos. Es el único de los tres donde el vínculo se pagaría |
+| **Plan de pautas** | Hoja de Google nativa, con una pestaña por empresa. Su columna «Estado» **no existe como texto**: está en el color de la celda, y la API de Sheets devuelve valores, no colores. Vincular medio cuadro traería la complejidad de las dos formas y las ventajas de ninguna |
+| **NPS** | No sale de una planilla. El informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio, de acceso público, que devuelve el resumen en JSON. Son dos números por período: una integración propia no se justifica |
 
 ### Puesta en marcha
 

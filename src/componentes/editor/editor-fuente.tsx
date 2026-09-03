@@ -22,14 +22,26 @@ import { esTipoVinculable } from '@/lib/desde-planilla';
 import { formatearFechaHora } from '@/lib/formato';
 import type { Bloque } from '@/lib/tipos';
 
-export function EditorFuente({ bloque, informePublicado }: { bloque: Bloque; informePublicado: boolean }) {
+export function EditorFuente({
+  bloque,
+  informePublicado,
+  planillasDisponibles,
+}: {
+  bloque: Bloque;
+  informePublicado: boolean;
+  /** Falso cuando TI todavia no cargo la credencial de Google. */
+  planillasDisponibles: boolean;
+}) {
   const [vinculado, establecerVinculado] = useState(bloque.fuente === 'planilla');
   const [planilla, establecerPlanilla] = useState(bloque.fuente_planilla_id);
   const [rango, establecerRango] = useState(bloque.fuente_rango);
   const [mensaje, establecerMensaje] = useState<string | null>(null);
   const [aviso, establecerAviso] = useState<string | null>(null);
 
+  // Sin credencial la opcion no se ofrece. Un bloque ya vinculado si se muestra,
+  // para que se vea por que trae los datos que trae y se pueda desvincular.
   if (!esTipoVinculable(bloque.tipo)) return null;
+  if (!planillasDisponibles && bloque.fuente !== 'planilla') return null;
 
   return (
     <div className="rounded-md border border-borde bg-superficie px-3 py-2.5">

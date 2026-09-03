@@ -49,11 +49,13 @@ export function EditorBloque({
   esPrimero,
   esUltimo,
   informePublicado,
+  planillasDisponibles,
 }: {
   bloque: Bloque;
   esPrimero: boolean;
   esUltimo: boolean;
   informePublicado: boolean;
+  planillasDisponibles: boolean;
 }) {
   const [titulo, establecerTitulo] = useState(bloque.titulo);
   const [accionTitulo, establecerAccionTitulo] = useState(bloque.accion_titulo);
@@ -158,7 +160,11 @@ export function EditorBloque({
           </Etiquetado>
         </div>
 
-        <EditorFuente bloque={bloque} informePublicado={informePublicado} />
+        <EditorFuente
+          bloque={bloque}
+          informePublicado={informePublicado}
+          planillasDisponibles={planillasDisponibles}
+        />
 
         {bloque.fuente === 'planilla' ? (
           <p className="rounded-md border border-dashed border-borde px-3 py-2.5 text-xs leading-relaxed text-atenuado">

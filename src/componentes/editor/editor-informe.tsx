@@ -19,9 +19,12 @@ import type { InformeCompleto } from '@/lib/tipos';
 export function EditorInforme({
   informe,
   empresaSlug,
+  planillasDisponibles,
 }: {
   informe: InformeCompleto;
   empresaSlug: string;
+  /** Falso cuando TI todavia no cargo la credencial de Google. */
+  planillasDisponibles: boolean;
 }) {
   const router = useRouter();
   const [mensaje, establecerMensaje] = useState<string | null>(null);
@@ -113,6 +116,7 @@ export function EditorInforme({
           esPrimera={indice === 0}
           esUltima={indice === informe.secciones.length - 1}
           informePublicado={informe.estado === 'publicado'}
+          planillasDisponibles={planillasDisponibles}
         />
       ))}
 
