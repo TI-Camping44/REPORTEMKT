@@ -184,6 +184,44 @@ export async function obtenerInformeCompleto(informeId: string): Promise<Informe
   };
 }
 
+/**
+ * Bloques de varios informes a la vez, agrupados por informe.
+ *
+ * Lo usa la vista de seguimiento, que necesita recorrer todas las reuniones.
+ * Son dos consultas y no una por informe: con doce reuniones, una por informe
+ * serian doce viajes a la base para dibujar una sola pantalla.
+ */
+export async function obtenerBloquesPorInforme(
+  informeIds: string[],
+): Promise<Map<string, Bloque[]>> {
+  const agrupados = new Map<string, Bloque[]>();
+  if (informeIds.length === 0) return agrupados;
+
+  const supabase = crearClienteDeServidor();
+
+  const { data: seccionesCrudas } = await supabase
+    .from('secciones')
+    .select('id, informe_id')
+    .in('informe_id', informeIds);
+
+  const secciones = (seccionesCrudas as Array<{ id: string; informe_id: string }> | null) ?? [];
+  if (secciones.length === 0) return agrupados;
+
+  const informePorSeccion = new Map(secciones.map((seccion) => [seccion.id, seccion.informe_id]));
+  const bloques = await listarBloquesDeSecciones(secciones.map((seccion) => seccion.id));
+
+  for (const bloque of bloques) {
+    const informeId = informePorSeccion.get(bloque.seccion_id);
+    if (informeId === undefined) continue;
+
+    const lista = agrupados.get(informeId) ?? [];
+    lista.push(bloque);
+    agrupados.set(informeId, lista);
+  }
+
+  return agrupados;
+}
+
 /** Todos los tableros, activos o no. Solo la pantalla de administracion los necesita. */
 export async function listarTodosLosTableros(): Promise<Tablero[]> {
   const supabase = crearClienteDeServidor();

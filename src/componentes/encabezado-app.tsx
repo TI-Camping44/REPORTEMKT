@@ -52,12 +52,20 @@ export function EncabezadoApp({
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
           {slugActual !== null ? (
-            <Link
-              href={`/${slugActual}/historial`}
-              className="rounded-md px-2 py-1 text-xs text-atenuado transition-colors hover:text-texto"
-            >
-              Historial
-            </Link>
+            <>
+              <Link
+                href={`/${slugActual}/seguimiento`}
+                className="rounded-md px-2 py-1 text-xs text-atenuado transition-colors hover:text-texto"
+              >
+                Seguimiento
+              </Link>
+              <Link
+                href={`/${slugActual}/historial`}
+                className="rounded-md px-2 py-1 text-xs text-atenuado transition-colors hover:text-texto"
+              >
+                Historial
+              </Link>
+            </>
           ) : null}
 
           {esAdministrador(usuario.rol) ? (
