@@ -193,6 +193,10 @@ la hoja y el rango (`Pautas!A1:E30`). Solo admiten vínculo los bloques de
   `valor`; `formato`, `decimales`, `variacion`, `detalle` y `mejorSiBaja` son
   opcionales.
 
+El rango no tiene que salir perfecto al primer intento: las filas y las columnas
+vacías de los bordes se descartan solas, así que una planilla con columna A de
+margen o con filas en blanco entre bloques se lee igual.
+
 Antes de guardar el vínculo hay dos botones que evitan configurar a ciegas:
 **Ver pestañas**, que lista los nombres reales de las solapas de la hoja, y
 **Probar sin guardar**, que lee el rango y dice cuántas filas y columnas trajo
@@ -209,9 +213,9 @@ abrir el informe de julio y ver lo que Dirección vio en julio.
 
 | Fuente | Estado |
 | --- | --- |
-| **Plan de pautas** | Es una hoja de Google nativa, con una pestaña por empresa. Se puede vincular. Falta que la planilla tenga una columna **Estado** escrita como texto: hoy el estado está solo en el color de la celda, y la API de Sheets devuelve valores, no colores |
-| **Control presupuestario** | Está en Drive como archivo **Excel** (`.xlsx`), no como hoja de Google. La API de Sheets no lee archivos de Excel. Hay que convertirlo con *Archivo → Guardar como Hojas de cálculo de Google*. El cuadro que va al informe es «Presupuesto por cuenta contable — año completo», en la pestaña Dashboard |
-| **NPS** | No sale de una planilla. El informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio, con acceso público, que devuelve el resumen en JSON. Como son dos o tres números por período, se cargan a mano y el bloque enlaza al informe en vivo |
+| **Control presupuestario** | **Vinculado.** Pestaña *Dashboard*, cuadro «Presupuesto por cuenta contable — año completo». Son once filas de números que se recalculan solos: es donde el vínculo se paga |
+| **Plan de pautas** | **A mano.** Son seis filas que cambian una vez al mes, y su columna «Estado» solo existe como color de celda en la planilla, no como texto. Vincularlo a medias traería la complejidad de las dos formas y las ventajas de ninguna. El botón del bloque lleva al plan de pautas |
+| **NPS** | **A mano.** No sale de una planilla: el informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio que devuelve el resumen en JSON. Son dos números por período, así que una integración propia no se justifica. El botón del bloque lleva al informe en vivo |
 
 ### Puesta en marcha
 

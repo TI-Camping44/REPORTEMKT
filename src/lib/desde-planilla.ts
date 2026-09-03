@@ -74,17 +74,56 @@ function aNumeroOpcional(valor: string): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
+/**
+ * Descarta las filas y columnas vacias de los bordes del rango.
+ *
+ * Las planillas de verdad tienen una columna A vacia como margen y filas en
+ * blanco entre bloques. Sin esto, el rango tendria que salir perfecto al primer
+ * intento y una fila de mas convertiria el encabezado en datos.
+ */
+function recortarBordes(filas: string[][]): string[][] {
+  const conContenido = (fila: string[]) => fila.some((celda) => celda.trim() !== '');
+
+  let arriba = 0;
+  while (arriba < filas.length && !conContenido(filas[arriba] ?? [])) arriba += 1;
+
+  let abajo = filas.length;
+  while (abajo > arriba && !conContenido(filas[abajo - 1] ?? [])) abajo -= 1;
+
+  const recortadas = filas.slice(arriba, abajo);
+  if (recortadas.length === 0) return [];
+
+  const ancho = recortadas.reduce((maximo, fila) => Math.max(maximo, fila.length), 0);
+  const columnaConContenido = (columna: number) =>
+    recortadas.some((fila) => (fila[columna] ?? '').trim() !== '');
+
+  let izquierda = 0;
+  while (izquierda < ancho && !columnaConContenido(izquierda)) izquierda += 1;
+
+  let derecha = ancho;
+  while (derecha > izquierda && !columnaConContenido(derecha - 1)) derecha -= 1;
+
+  return recortadas.map((fila) =>
+    Array.from({ length: derecha - izquierda }, (_, columna) => fila[izquierda + columna] ?? ''),
+  );
+}
+
 export type ResultadoConversion =
   | { exito: true; contenido: ContenidoTabla | ContenidoIndicadores }
   | { exito: false; error: string };
 
 export function convertirDesdePlanilla(
   tipo: TipoBloque,
-  filas: string[][],
+  filasCrudas: string[][],
   contenidoActual: unknown,
 ): ResultadoConversion {
+  const filas = recortarBordes(filasCrudas);
+
   if (filas.length === 0) {
-    return { exito: false, error: 'El rango no devolvió ninguna fila. Revise que apunte a las celdas correctas.' };
+    return {
+      exito: false,
+      error: 'El rango no trajo ninguna celda con contenido. Revise que apunte a las celdas correctas.',
+    };
   }
 
   if (tipo === 'tabla') return convertirTabla(filas, contenidoActual);
