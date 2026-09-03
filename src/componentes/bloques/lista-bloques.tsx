@@ -9,6 +9,7 @@ import { BloqueLineaTiempo } from '@/componentes/bloques/bloque-linea-tiempo';
 import { BloqueTabla } from '@/componentes/bloques/bloque-tabla';
 import { BloqueTexto } from '@/componentes/bloques/bloque-texto';
 import { CabeceraTarjeta, CuerpoTarjeta, Tarjeta } from '@/componentes/tarjeta';
+import { formatearFechaHora } from '@/lib/formato';
 import type {
   ContenidoAgenda,
   ContenidoAlertas,
@@ -94,11 +95,20 @@ export function ListaBloques({
     <div className="space-y-3">
       {bloques.map((bloque) => {
         const conCabecera = bloque.titulo !== '' || bloque.accion_titulo !== '';
+        // De donde salen los datos: se dice cuando no los escribio una persona.
+        const origen =
+          bloque.fuente === 'planilla' && bloque.fuente_actualizada_en !== null
+            ? `Datos de la planilla, leídos el ${formatearFechaHora(bloque.fuente_actualizada_en)}`
+            : undefined;
 
         return (
           <Tarjeta key={bloque.id}>
             {conCabecera ? (
-              <CabeceraTarjeta titulo={bloque.titulo} acciones={<BotonDelBloque bloque={bloque} />} />
+              <CabeceraTarjeta
+                titulo={bloque.titulo}
+                descripcion={origen}
+                acciones={<BotonDelBloque bloque={bloque} />}
+              />
             ) : null}
             <CuerpoTarjeta>
               <CuerpoBloque bloque={bloque} puedeEditar={puedeEditar} />

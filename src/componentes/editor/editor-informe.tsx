@@ -12,6 +12,7 @@ import { EditorEncabezado } from '@/componentes/editor/editor-encabezado';
 import { EditorSeccion } from '@/componentes/editor/editor-seccion';
 import { CabeceraTarjeta, CuerpoTarjeta, Tarjeta } from '@/componentes/tarjeta';
 import { cambiarEstadoDelInforme, eliminarInforme } from '@/acciones/informes';
+import { actualizarInformeDesdePlanillas } from '@/acciones/planillas';
 import { agregarSeccion } from '@/acciones/secciones';
 import type { InformeCompleto } from '@/lib/tipos';
 
@@ -72,6 +73,24 @@ export function EditorInforme({
             </BotonAccion>
           )}
 
+          {informe.secciones.some((seccion) =>
+            seccion.bloques.some((bloque) => bloque.fuente === 'planilla'),
+          ) ? (
+            <BotonAccion
+              accion={() => actualizarInformeDesdePlanillas({ informeId: informe.id })}
+              etiquetaCargando="Leyendo las planillas…"
+              deshabilitado={informe.estado === 'publicado'}
+              alTerminar={(resultado) => {
+                if (resultado.exito) {
+                  establecerMensaje(resultado.mensaje ?? 'Bloques actualizados.');
+                  router.refresh();
+                }
+              }}
+            >
+              Actualizar desde las planillas
+            </BotonAccion>
+          ) : null}
+
           <BotonAccion
             accion={() => eliminarInforme({ informeId: informe.id, slugEmpresa: empresaSlug })}
             etiquetaCargando="Eliminando…"
@@ -93,6 +112,7 @@ export function EditorInforme({
           seccion={seccion}
           esPrimera={indice === 0}
           esUltima={indice === informe.secciones.length - 1}
+          informePublicado={informe.estado === 'publicado'}
         />
       ))}
 

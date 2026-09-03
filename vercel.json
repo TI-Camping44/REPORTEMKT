@@ -3,5 +3,13 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "regions": ["pdx1"]
+  "regions": [
+    "pdx1"
+  ],
+  "crons": [
+    {
+      "path": "/api/tareas/actualizar-planillas",
+      "schedule": "0 11 * * *"
+    }
+  ]
 }

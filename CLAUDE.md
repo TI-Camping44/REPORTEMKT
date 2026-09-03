@@ -159,6 +159,27 @@ Tildar un punto de la agenda **se guarda**: es la constancia de que el tema se
 trató. Como escribir exige rol de editor, quien presenta tilda y Dirección lo ve
 marcado sin poder cambiarlo.
 
+## Bloques vinculados a una planilla
+
+Un bloque de `tabla` o de `indicadores` puede leer su contenido de un rango de
+Google Sheets (`fuente = 'planilla'`). Los demás tipos no: la agenda, los hitos,
+las alertas y los pendientes de Dirección son criterio de Marketing, no un dato
+que se pueda leer de algún lado.
+
+Lo leído **se guarda en `contenido`**, igual que si lo hubiera escrito una
+persona. No se consulta la planilla al dibujar la página. Y **solo se actualiza
+mientras el informe está en borrador**: un informe publicado es el registro de
+lo que se presentó en esa reunión, y si sus números cambiaran solos dejaría de
+servir como registro. Esa regla la aplica la aplicación, no la base.
+
+La credencial vive en `GOOGLE_CUENTA_SERVICIO` y solo la usa el servidor. El
+token se firma a mano en `src/lib/planillas.ts` con `node:crypto` en lugar de
+sumar la librería `googleapis`, que pesa varios megabytes en cada función.
+
+La tarea diaria de `vercel.json` (`/api/tareas/actualizar-planillas`) corre sin
+sesión y por eso usa el cliente con la clave de servicio: es el caso para el que
+existe. Valida `CRON_SECRET` y, sin ese valor configurado, no hace nada.
+
 ## El iframe de Looker Studio
 
 Cuatro cosas que se rompen si no se respetan (`src/componentes/tablero-looker.tsx`):

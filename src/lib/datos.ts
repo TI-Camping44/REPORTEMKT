@@ -22,7 +22,8 @@ import type {
 const CAMPOS_INFORME =
   'id, empresa_id, titulo, periodo_tipo, periodo_inicio, periodo_fin, periodo_etiqueta, reunion_fecha, reunion_hora, presenta, estado, creado_por, creado_en, actualizado_en';
 
-const CAMPOS_BLOQUE = 'id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido';
+const CAMPOS_BLOQUE =
+  'id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido, fuente, fuente_planilla_id, fuente_rango, fuente_actualizada_en, fuente_error';
 
 export async function listarEmpresas(): Promise<Empresa[]> {
   const supabase = crearClienteDeServidor();

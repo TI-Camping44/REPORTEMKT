@@ -60,6 +60,8 @@ entornos.
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta. **Ignora RLS.** Solo scripts de mantenimiento, jamás con prefijo `NEXT_PUBLIC_` | Sí |
 | `DOMINIO_PERMITIDO` | Dominio de Google Workspace autorizado, sin arroba | No, pero no se escribe en el código |
 | `NEXT_PUBLIC_SITE_URL` | Base pública, para armar la dirección de retorno de Google | No |
+| `GOOGLE_CUENTA_SERVICIO` | Credencial de la cuenta de servicio que lee las planillas. Opcional | Sí |
+| `CRON_SECRET` | Secreto de la tarea diaria que refresca los bloques vinculados. Opcional | Sí |
 
 ### Scripts
 
@@ -172,6 +174,42 @@ No es una migración y no se aplica en Supabase.
 donde está la base de datos. Si el proyecto de Supabase se recrea en otra
 región, hay que cambiar ese valor: dejar la aplicación y la base en continentes
 distintos agrega una ida y vuelta a cada consulta.
+
+## Bloques vinculados a una planilla
+
+Tres cuadros del informe —planificación de pautas, control presupuestario y
+NPS— se copiaban a mano desde una planilla en cada reunión. Ahora pueden quedar
+vinculados a un rango de Google Sheets y llenarse solos.
+
+Se configura por bloque, desde la pantalla de edición: se pega la dirección de
+la hoja y el rango (`Pautas!A1:E30`). Solo admiten vínculo los bloques de
+**tabla** e **indicadores**; el resto del informe no sale de ninguna planilla.
+
+- **Tabla** — la primera fila del rango son los títulos de las columnas. Una
+  fila que empiece con «Total» se toma como fila de totales. Si el título de una
+  columna coincide con una que el bloque ya tenía, se conserva su formato, su
+  alineación y sus colores de estado: la planilla trae los datos, no el diseño.
+- **Indicadores** — la primera fila son encabezados. Hacen falta `etiqueta` y
+  `valor`; `formato`, `decimales`, `variacion`, `detalle` y `mejorSiBaja` son
+  opcionales.
+
+**Cuándo se actualiza.** Mientras el informe está en borrador: con el botón
+«Actualizar ahora» de cada bloque, con «Actualizar desde las planillas» del
+informe entero, y una vez por día con la tarea programada de `vercel.json`.
+**Al publicarlo queda congelado**, porque un informe publicado es el registro de
+lo que se presentó en esa reunión: si sus números cambiaran solos, nadie podría
+abrir el informe de julio y ver lo que Dirección vio en julio.
+
+### Puesta en marcha
+
+1. En Google Cloud Console, *APIs y servicios → Biblioteca* → habilitar
+   **Google Sheets API**.
+2. *Credenciales → Crear credenciales → Cuenta de servicio*. Crear una clave
+   **JSON** y guardarla.
+3. Compartir cada planilla con el correo de esa cuenta —el que termina en
+   `.iam.gserviceaccount.com`— con permiso de **Lector**.
+4. Cargar el JSON en `GOOGLE_CUENTA_SERVICIO` y un secreto cualquiera en
+   `CRON_SECRET`.
 
 ## Modelo de datos
 

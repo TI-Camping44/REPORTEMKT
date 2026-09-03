@@ -66,9 +66,14 @@ export const config = {
   matcher: [
     /*
      * Todas las rutas menos los archivos estaticos y las imagenes optimizadas.
+     *
      * La ruta de retorno de la autenticacion queda incluida a proposito: ahi el
      * middleware refresca la cookie antes de que la ruta intercambie el codigo.
+     *
+     * /api queda afuera: sus rutas no las abre una persona con sesion, las
+     * llama la tarea programada de Vercel y validan su propio secreto. Si
+     * pasaran por aca, el middleware las mandaria a la pantalla de ingreso.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

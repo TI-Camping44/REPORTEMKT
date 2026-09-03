@@ -164,7 +164,9 @@ async function copiarContenido(origenId: string, destinoId: string): Promise<str
 
   const { data: bloquesCrudos } = await supabase
     .from('bloques')
-    .select('id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido')
+    .select(
+      'id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido, fuente, fuente_planilla_id, fuente_rango',
+    )
     .in('seccion_id', secciones.map((seccion) => seccion.id))
     .order('orden', { ascending: true });
 
@@ -184,6 +186,11 @@ async function copiarContenido(origenId: string, destinoId: string): Promise<str
         titulo: bloque.titulo,
         accion_titulo: bloque.accion_titulo,
         accion_url: bloque.accion_url,
+        // El vinculo con la planilla se copia; la marca de ultima lectura no,
+        // porque el informe nuevo todavia no leyo nada.
+        fuente: bloque.fuente,
+        fuente_planilla_id: bloque.fuente_planilla_id,
+        fuente_rango: bloque.fuente_rango,
         // La agenda arranca sin tildar: los temas del período anterior ya se trataron.
         contenido: bloque.tipo === 'agenda' ? destildarAgenda(bloque.contenido) : bloque.contenido,
       },
