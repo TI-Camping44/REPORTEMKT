@@ -193,12 +193,25 @@ la hoja y el rango (`Pautas!A1:E30`). Solo admiten vínculo los bloques de
   `valor`; `formato`, `decimales`, `variacion`, `detalle` y `mejorSiBaja` son
   opcionales.
 
+Antes de guardar el vínculo hay dos botones que evitan configurar a ciegas:
+**Ver pestañas**, que lista los nombres reales de las solapas de la hoja, y
+**Probar sin guardar**, que lee el rango y dice cuántas filas y columnas trajo
+sin tocar el bloque.
+
 **Cuándo se actualiza.** Mientras el informe está en borrador: con el botón
 «Actualizar ahora» de cada bloque, con «Actualizar desde las planillas» del
 informe entero, y una vez por día con la tarea programada de `vercel.json`.
 **Al publicarlo queda congelado**, porque un informe publicado es el registro de
 lo que se presentó en esa reunión: si sus números cambiaran solos, nadie podría
 abrir el informe de julio y ver lo que Dirección vio en julio.
+
+### Estado de las tres fuentes previstas
+
+| Fuente | Estado |
+| --- | --- |
+| **Plan de pautas** | Es una hoja de Google nativa, con una pestaña por empresa. Se puede vincular. Falta que la planilla tenga una columna **Estado** escrita como texto: hoy el estado está solo en el color de la celda, y la API de Sheets devuelve valores, no colores |
+| **Control presupuestario** | Está en Drive como archivo **Excel** (`.xlsx`), no como hoja de Google. La API de Sheets no lee archivos de Excel. Hay que convertirlo con *Archivo → Guardar como Hojas de cálculo de Google*. El cuadro que va al informe es «Presupuesto por cuenta contable — año completo», en la pestaña Dashboard |
+| **NPS** | No sale de una planilla. El informe de `ti-camping44.github.io/NPS-REPORTE` consulta un Apps Script propio, con acceso público, que devuelve el resumen en JSON. Como son dos o tres números por período, se cargan a mano y el bloque enlaza al informe en vivo |
 
 ### Puesta en marcha
 

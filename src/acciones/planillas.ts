@@ -5,7 +5,7 @@
 import { validarContenidoBloque } from '@/lib/bloques';
 import { convertirDesdePlanilla, esTipoVinculable } from '@/lib/desde-planilla';
 import { mensajeDeError } from '@/lib/errores';
-import { ErrorDePlanilla, identificadorDePlanilla, leerRango } from '@/lib/planillas';
+import { ErrorDePlanilla, identificadorDePlanilla, leerRango, listarPestanas } from '@/lib/planillas';
 import { requerirEditor } from '@/lib/sesion';
 import { crearClienteDeServidor } from '@/lib/supabase/servidor';
 import { revalidarInformes } from '@/lib/revalidacion';
@@ -87,6 +87,105 @@ export async function guardarFuenteDelBloque(datos: {
 
   revalidarInformes();
   return { exito: true, mensaje: 'Bloque vinculado. Actualícelo para traer los datos.' };
+}
+
+/**
+ * Nombres de las pestanas de la planilla.
+ *
+ * Sin esto hay que ir a la hoja, mirar las solapas de abajo y copiar el nombre
+ * a mano, que es donde se cometen las erratas que despues aparecen como "rango
+ * no valido" sin mas explicacion.
+ */
+export async function verPestanasDeLaPlanilla(datos: {
+  planilla: string;
+}): Promise<ResultadoAccion> {
+  await requerirEditor();
+
+  const planilla = identificadorDePlanilla(datos.planilla);
+  if (planilla === '') return { exito: false, error: 'Pegue primero la dirección de la planilla.' };
+
+  try {
+    const pestanas = await listarPestanas(planilla);
+
+    if (pestanas.length === 0) {
+      return { exito: false, error: 'La planilla no tiene ninguna pestaña legible.' };
+    }
+
+    return {
+      exito: true,
+      mensaje: `Pestañas de la planilla: ${pestanas.map((nombre) => `«${nombre}»`).join(', ')}. El rango se escribe con el nombre de la pestaña, un signo de admiración y las celdas. Por ejemplo: ${pestanas[0]}!A1:E30`,
+    };
+  } catch (error) {
+    if (error instanceof ErrorDePlanilla) return { exito: false, error: error.message };
+    return { exito: false, error: 'No se pudo contactar con Google. Vuelva a intentarlo en unos minutos.' };
+  }
+}
+
+/**
+ * Lee el rango y cuenta que trajo, sin guardar nada.
+ *
+ * Configurar un vinculo a ciegas y descubrir el error recien cuando el informe
+ * sale mal es la peor forma de hacerlo. Esto permite probar antes de guardar.
+ */
+export async function probarRango(datos: {
+  bloqueId: string;
+  planilla: string;
+  rango: string;
+}): Promise<ResultadoAccion> {
+  await requerirEditor();
+
+  const supabase = crearClienteDeServidor();
+  const { data } = await supabase
+    .from('bloques')
+    .select('tipo, contenido')
+    .eq('id', datos.bloqueId)
+    .maybeSingle();
+
+  const bloque = data as Pick<Bloque, 'tipo' | 'contenido'> | null;
+  if (bloque === null) return { exito: false, error: 'El bloque ya no existe. Recargue la pantalla.' };
+
+  const planilla = identificadorDePlanilla(datos.planilla);
+  const rango = datos.rango.trim();
+
+  if (planilla === '') return { exito: false, error: 'Pegue la dirección de la planilla.' };
+  if (rango === '') {
+    return { exito: false, error: 'Escriba el rango, con el nombre de la pestaña. Por ejemplo: Pautas!A1:E30' };
+  }
+
+  let filas: string[][];
+  try {
+    filas = await leerRango(planilla, rango);
+  } catch (error) {
+    if (error instanceof ErrorDePlanilla) return { exito: false, error: error.message };
+    return { exito: false, error: 'No se pudo contactar con Google. Vuelva a intentarlo en unos minutos.' };
+  }
+
+  const conversion = convertirDesdePlanilla(bloque.tipo, filas, bloque.contenido);
+  if (!conversion.exito) return { exito: false, error: conversion.error };
+
+  const problema = validarContenidoBloque(bloque.tipo, conversion.contenido);
+  if (problema !== null) {
+    return { exito: false, error: `La planilla trajo datos que el bloque no admite: ${problema}` };
+  }
+
+  if (bloque.tipo === 'tabla') {
+    const contenido = conversion.contenido as { columnas: Array<{ titulo: string }>; filas: unknown[]; total: unknown };
+    const titulos = contenido.columnas.map((columna) => columna.titulo).join(', ');
+    const conTotal = contenido.total !== null && contenido.total !== undefined;
+
+    return {
+      exito: true,
+      mensaje: `Se leyeron ${contenido.filas.length} filas y ${contenido.columnas.length} columnas: ${titulos}.${conTotal ? ' Se detectó una fila de totales.' : ' No se detectó fila de totales.'} No se guardó nada todavía.`,
+    };
+  }
+
+  const contenido = conversion.contenido as { indicadores: Array<{ etiqueta: string }> };
+  const etiquetas = contenido.indicadores.map((indicador) => indicador.etiqueta).join(', ');
+
+  return {
+    exito: true,
+    mensaje: `Se leyeron ${contenido.indicadores.length} indicadores: ${etiquetas}. No se guardó nada todavía.`,
+  };
 }
 
 /**

@@ -136,6 +136,48 @@ export function identificadorDePlanilla(valor: string): string {
 }
 
 /**
+ * Nombres de las pestanas de una planilla.
+ *
+ * Sirve para no tener que adivinar el rango: quien configura el bloque ve la
+ * lista y escribe el nombre tal cual, sin ir a mirar las solapas de la hoja.
+ */
+export async function listarPestanas(planillaId: string): Promise<string[]> {
+  const token = await obtenerToken();
+
+  const direccion = new URL(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(planillaId)}`,
+  );
+  direccion.searchParams.set('fields', 'sheets.properties.title');
+
+  const respuesta = await fetch(direccion, {
+    headers: { authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+
+  if (respuesta.status === 403) {
+    throw new ErrorDePlanilla(
+      'La cuenta de servicio no tiene acceso a esa planilla. Compártala con su correo, con permiso de lector.',
+    );
+  }
+
+  if (respuesta.status === 404) {
+    throw new ErrorDePlanilla(
+      'No se encontró la planilla. Revise la dirección, y que sea una hoja de cálculo de Google y no un archivo de Excel subido a Drive.',
+    );
+  }
+
+  if (!respuesta.ok) {
+    throw new ErrorDePlanilla('No se pudo leer la planilla. Vuelva a intentarlo en unos minutos.');
+  }
+
+  const datos = (await respuesta.json()) as { sheets?: Array<{ properties?: { title?: string } }> };
+
+  return (datos.sheets ?? [])
+    .map((hoja) => hoja.properties?.title ?? '')
+    .filter((titulo) => titulo !== '');
+}
+
+/**
  * Devuelve las celdas del rango como texto, fila por fila.
  *
  * Google recorta las filas y las columnas vacias del final, asi que las filas
@@ -164,7 +206,7 @@ export async function leerRango(planillaId: string, rango: string): Promise<stri
 
   if (respuesta.status === 404) {
     throw new ErrorDePlanilla(
-      'No se encontró la planilla. Revise el identificador y que la hoja no haya sido eliminada.',
+      'No se encontró la planilla. Revise la dirección, y que sea una hoja de cálculo de Google y no un archivo de Excel subido a Drive: la API de Sheets no lee archivos .xlsx.',
     );
   }
 

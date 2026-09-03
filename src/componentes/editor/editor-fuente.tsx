@@ -12,7 +12,12 @@ import { useState } from 'react';
 import { Aviso } from '@/componentes/aviso';
 import { BotonAccion } from '@/componentes/boton-accion';
 import { CampoTexto, Casilla, Etiquetado } from '@/componentes/campos';
-import { actualizarBloqueDesdePlanilla, guardarFuenteDelBloque } from '@/acciones/planillas';
+import {
+  actualizarBloqueDesdePlanilla,
+  guardarFuenteDelBloque,
+  probarRango,
+  verPestanasDeLaPlanilla,
+} from '@/acciones/planillas';
 import { esTipoVinculable } from '@/lib/desde-planilla';
 import { formatearFechaHora } from '@/lib/formato';
 import type { Bloque } from '@/lib/tipos';
@@ -22,6 +27,7 @@ export function EditorFuente({ bloque, informePublicado }: { bloque: Bloque; inf
   const [planilla, establecerPlanilla] = useState(bloque.fuente_planilla_id);
   const [rango, establecerRango] = useState(bloque.fuente_rango);
   const [mensaje, establecerMensaje] = useState<string | null>(null);
+  const [aviso, establecerAviso] = useState<string | null>(null);
 
   if (!esTipoVinculable(bloque.tipo)) return null;
 
@@ -67,8 +73,39 @@ export function EditorFuente({ bloque, informePublicado }: { bloque: Bloque; inf
           </p>
 
           <p className="text-micro text-atenuado">
-            La planilla tiene que estar compartida como lector con la cuenta de servicio de la aplicación.
+            La planilla tiene que ser una hoja de cálculo de Google —no un archivo de Excel subido a
+            Drive— y estar compartida como lector con la cuenta de servicio de la aplicación.
           </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <BotonAccion
+              accion={() => verPestanasDeLaPlanilla({ planilla })}
+              etiquetaCargando="Consultando…"
+              tamano="chico"
+              alTerminar={(resultado) => {
+                establecerAviso(resultado.exito ? resultado.mensaje ?? null : null);
+              }}
+            >
+              Ver pestañas
+            </BotonAccion>
+
+            <BotonAccion
+              accion={() => probarRango({ bloqueId: bloque.id, planilla, rango })}
+              etiquetaCargando="Leyendo…"
+              tamano="chico"
+              alTerminar={(resultado) => {
+                establecerAviso(resultado.exito ? resultado.mensaje ?? null : null);
+              }}
+            >
+              Probar sin guardar
+            </BotonAccion>
+          </div>
+
+          {aviso !== null ? (
+            <Aviso tono="informacion" className="mt-1">
+              {aviso}
+            </Aviso>
+          ) : null}
         </div>
       )}
 
