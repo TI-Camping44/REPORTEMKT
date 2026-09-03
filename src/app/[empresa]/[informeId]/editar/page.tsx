@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 
 import { EditorInforme } from '@/componentes/editor/editor-informe';
 import { EtiquetaEstadoInforme } from '@/componentes/etiqueta';
-import { listarBloques, obtenerEmpresaPorSlug, obtenerInforme } from '@/lib/datos';
-import { formatearFechaHora } from '@/lib/formato';
-import { rotularPeriodo, rotularRango } from '@/lib/periodos';
+import { obtenerEmpresaPorSlug, obtenerInformeCompleto } from '@/lib/datos';
+import { formatearFecha, formatearFechaHora } from '@/lib/formato';
+import { rotularPeriodo } from '@/lib/periodos';
 import { requerirEditor } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Editar informe' };
@@ -20,17 +20,20 @@ export default async function PaginaDeEdicion({
 
   const [empresa, informe] = await Promise.all([
     obtenerEmpresaPorSlug(params.empresa),
-    obtenerInforme(params.informeId),
+    obtenerInformeCompleto(params.informeId),
   ]);
 
   if (empresa === null || informe === null || informe.empresa_id !== empresa.id) {
     notFound();
   }
 
-  const bloques = await listarBloques(informe.id);
+  const periodo =
+    informe.periodo_etiqueta !== ''
+      ? informe.periodo_etiqueta
+      : rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-contenido space-y-5 px-4 py-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -39,11 +42,9 @@ export default async function PaginaDeEdicion({
             </span>
             <EtiquetaEstadoInforme estado={informe.estado} />
           </div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight">
-            {rotularPeriodo(informe.periodo_tipo, informe.periodo_inicio)}
-          </h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight">{periodo}</h1>
           <p className="mt-0.5 text-xs text-atenuado">
-            {rotularRango(informe.periodo_inicio, informe.periodo_fin)} · Actualizado el{' '}
+            Reunión del {formatearFecha(informe.reunion_fecha)} · Actualizado el{' '}
             {formatearFechaHora(informe.actualizado_en)}
           </p>
         </div>
@@ -56,7 +57,7 @@ export default async function PaginaDeEdicion({
         </Link>
       </header>
 
-      <EditorInforme informe={informe} bloques={bloques} empresaSlug={empresa.slug} />
+      <EditorInforme informe={informe} empresaSlug={empresa.slug} />
     </div>
   );
 }

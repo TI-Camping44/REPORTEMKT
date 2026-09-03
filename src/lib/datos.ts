@@ -7,7 +7,22 @@
  */
 
 import { crearClienteDeServidor } from '@/lib/supabase/servidor';
-import type { Bloque, Empresa, Enlace, Informe, Tablero, Usuario } from '@/lib/tipos';
+import type {
+  Bloque,
+  Empresa,
+  Enlace,
+  Informe,
+  InformeCompleto,
+  Seccion,
+  SeccionCompleta,
+  Tablero,
+  Usuario,
+} from '@/lib/tipos';
+
+const CAMPOS_INFORME =
+  'id, empresa_id, titulo, periodo_tipo, periodo_inicio, periodo_fin, periodo_etiqueta, reunion_fecha, reunion_hora, presenta, estado, creado_por, creado_en, actualizado_en';
+
+const CAMPOS_BLOQUE = 'id, seccion_id, tipo, orden, titulo, accion_titulo, accion_url, contenido';
 
 export async function listarEmpresas(): Promise<Empresa[]> {
   const supabase = crearClienteDeServidor();
@@ -30,16 +45,14 @@ export async function obtenerEmpresaPorSlug(slug: string): Promise<Empresa | nul
   return (data as Empresa | null) ?? null;
 }
 
+/** Informes de la empresa, del mas nuevo al mas viejo. */
 export async function listarInformesDeEmpresa(empresaId: string): Promise<Informe[]> {
   const supabase = crearClienteDeServidor();
   const { data } = await supabase
     .from('informes')
-    .select(
-      'id, empresa_id, periodo_tipo, periodo_inicio, periodo_fin, estado, creado_por, creado_en, actualizado_en',
-    )
+    .select(CAMPOS_INFORME)
     .eq('empresa_id', empresaId)
-    .order('periodo_inicio', { ascending: false })
-    .order('periodo_tipo', { ascending: true });
+    .order('reunion_fecha', { ascending: false });
 
   return (data as Informe[] | null) ?? [];
 }
@@ -49,28 +62,24 @@ export async function obtenerUltimoInformePublicado(empresaId: string): Promise<
   const supabase = crearClienteDeServidor();
   const { data } = await supabase
     .from('informes')
-    .select(
-      'id, empresa_id, periodo_tipo, periodo_inicio, periodo_fin, estado, creado_por, creado_en, actualizado_en',
-    )
+    .select(CAMPOS_INFORME)
     .eq('empresa_id', empresaId)
     .eq('estado', 'publicado')
-    .order('periodo_inicio', { ascending: false })
+    .order('reunion_fecha', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   return (data as Informe | null) ?? null;
 }
 
-/** Ultimo informe de la empresa, publicado o no. Sirve de punto de partida al duplicar. */
+/** Ultimo informe de la empresa, publicado o no. Punto de partida al duplicar. */
 export async function obtenerUltimoInforme(empresaId: string): Promise<Informe | null> {
   const supabase = crearClienteDeServidor();
   const { data } = await supabase
     .from('informes')
-    .select(
-      'id, empresa_id, periodo_tipo, periodo_inicio, periodo_fin, estado, creado_por, creado_en, actualizado_en',
-    )
+    .select(CAMPOS_INFORME)
     .eq('empresa_id', empresaId)
-    .order('periodo_inicio', { ascending: false })
+    .order('reunion_fecha', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -81,21 +90,32 @@ export async function obtenerInforme(informeId: string): Promise<Informe | null>
   const supabase = crearClienteDeServidor();
   const { data } = await supabase
     .from('informes')
-    .select(
-      'id, empresa_id, periodo_tipo, periodo_inicio, periodo_fin, estado, creado_por, creado_en, actualizado_en',
-    )
+    .select(CAMPOS_INFORME)
     .eq('id', informeId)
     .maybeSingle();
 
   return (data as Informe | null) ?? null;
 }
 
-export async function listarBloques(informeId: string): Promise<Bloque[]> {
+export async function listarSecciones(informeId: string): Promise<Seccion[]> {
+  const supabase = crearClienteDeServidor();
+  const { data } = await supabase
+    .from('secciones')
+    .select('id, informe_id, clave, titulo, etiqueta, orden')
+    .eq('informe_id', informeId)
+    .order('orden', { ascending: true });
+
+  return (data as Seccion[] | null) ?? [];
+}
+
+export async function listarBloquesDeSecciones(seccionIds: string[]): Promise<Bloque[]> {
+  if (seccionIds.length === 0) return [];
+
   const supabase = crearClienteDeServidor();
   const { data } = await supabase
     .from('bloques')
-    .select('id, informe_id, tipo, orden, titulo, contenido')
-    .eq('informe_id', informeId)
+    .select(CAMPOS_BLOQUE)
+    .in('seccion_id', seccionIds)
     .order('orden', { ascending: true })
     .order('id', { ascending: true });
 
@@ -124,6 +144,64 @@ export async function listarEnlaces(empresaId: string): Promise<Enlace[]> {
     .from('enlaces')
     .select('id, empresa_id, titulo, url, orden')
     .eq('empresa_id', empresaId)
+    .order('orden', { ascending: true });
+
+  return (data as Enlace[] | null) ?? [];
+}
+
+/**
+ * El informe con todo lo que hace falta para dibujarlo.
+ *
+ * Son varias consultas en lugar de una anidada porque PostgREST devuelve las
+ * relaciones anidadas sin garantia de orden, y aca el orden de las secciones y
+ * el de los bloques es exactamente lo que define el documento.
+ */
+export async function obtenerInformeCompleto(informeId: string): Promise<InformeCompleto | null> {
+  const informe = await obtenerInforme(informeId);
+  if (informe === null) return null;
+
+  const [secciones, empresas, tableros, enlaces] = await Promise.all([
+    listarSecciones(informeId),
+    listarEmpresas(),
+    listarTableros(informe.empresa_id),
+    listarEnlaces(informe.empresa_id),
+  ]);
+
+  const bloques = await listarBloquesDeSecciones(secciones.map((seccion) => seccion.id));
+
+  const completas: SeccionCompleta[] = secciones.map((seccion) => ({
+    ...seccion,
+    bloques: bloques.filter((bloque) => bloque.seccion_id === seccion.id),
+  }));
+
+  return {
+    ...informe,
+    empresa: empresas.find((empresa) => empresa.id === informe.empresa_id) ?? null,
+    secciones: completas,
+    tableros,
+    enlaces,
+  };
+}
+
+/** Todos los tableros, activos o no. Solo la pantalla de administracion los necesita. */
+export async function listarTodosLosTableros(): Promise<Tablero[]> {
+  const supabase = crearClienteDeServidor();
+  const { data } = await supabase
+    .from('tableros')
+    .select('id, empresa_id, nombre, url_insercion, alto_px, orden, activo')
+    .order('empresa_id', { ascending: true })
+    .order('orden', { ascending: true });
+
+  return (data as Tablero[] | null) ?? [];
+}
+
+/** Todos los enlaces de todas las empresas, para la pantalla de administracion. */
+export async function listarTodosLosEnlaces(): Promise<Enlace[]> {
+  const supabase = crearClienteDeServidor();
+  const { data } = await supabase
+    .from('enlaces')
+    .select('id, empresa_id, titulo, url, orden')
+    .order('empresa_id', { ascending: true })
     .order('orden', { ascending: true });
 
   return (data as Enlace[] | null) ?? [];
@@ -164,28 +242,4 @@ export async function obtenerNombresDeUsuarios(ids: string[]): Promise<Map<strin
   }
 
   return mapa;
-}
-
-/** Todos los tableros, activos o no, para la pantalla de administracion. */
-export async function listarTodosLosTableros(): Promise<Tablero[]> {
-  const supabase = crearClienteDeServidor();
-  const { data } = await supabase
-    .from('tableros')
-    .select('id, empresa_id, nombre, url_insercion, alto_px, orden, activo')
-    .order('empresa_id', { ascending: true })
-    .order('orden', { ascending: true });
-
-  return (data as Tablero[] | null) ?? [];
-}
-
-/** Todos los enlaces de todas las empresas, para la pantalla de administracion. */
-export async function listarTodosLosEnlaces(): Promise<Enlace[]> {
-  const supabase = crearClienteDeServidor();
-  const { data } = await supabase
-    .from('enlaces')
-    .select('id, empresa_id, titulo, url, orden')
-    .order('empresa_id', { ascending: true })
-    .order('orden', { ascending: true });
-
-  return (data as Enlace[] | null) ?? [];
 }

@@ -1,34 +1,21 @@
 'use server';
 
-/** Escrituras sobre los bloques de un informe. */
+/** Escrituras sobre los bloques de una seccion. */
 
-import { revalidatePath } from 'next/cache';
-
-import { contenidoPorDefecto, esTipoBloque, validarContenidoBloque } from '@/lib/bloques';
+import {
+  contenidoPorDefecto,
+  esTipoBloque,
+  validarContenidoBloque,
+  type ContenidoAgenda,
+} from '@/lib/bloques';
 import { mensajeDeError } from '@/lib/errores';
 import { requerirEditor } from '@/lib/sesion';
 import { crearClienteDeServidor } from '@/lib/supabase/servidor';
+import { revalidarInformes } from '@/lib/revalidacion';
 import type { Bloque, ResultadoAccion } from '@/lib/tipos';
 
-/** Vuelve a pedir al servidor la pantalla de edicion y la de lectura del informe. */
-async function revalidarInforme(informeId: string): Promise<void> {
-  const supabase = crearClienteDeServidor();
-  const { data } = await supabase
-    .from('informes')
-    .select('empresa_id, empresas ( slug )')
-    .eq('id', informeId)
-    .maybeSingle();
-
-  const slug = (data as { empresas: { slug: string } | null } | null)?.empresas?.slug;
-  if (slug === undefined) return;
-
-  revalidatePath(`/${slug}`);
-  revalidatePath(`/${slug}/${informeId}`);
-  revalidatePath(`/${slug}/${informeId}/editar`);
-}
-
 export async function agregarBloque(datos: {
-  informeId: string;
+  seccionId: string;
   tipo: string;
 }): Promise<ResultadoAccion> {
   await requerirEditor();
@@ -42,7 +29,7 @@ export async function agregarBloque(datos: {
   const { data: ultimo } = await supabase
     .from('bloques')
     .select('orden')
-    .eq('informe_id', datos.informeId)
+    .eq('seccion_id', datos.seccionId)
     .order('orden', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -52,20 +39,22 @@ export async function agregarBloque(datos: {
   const { data: creado, error } = await supabase
     .from('bloques')
     .insert({
-      informe_id: datos.informeId,
+      seccion_id: datos.seccionId,
       tipo: datos.tipo,
       orden: ordenNuevo,
       titulo: '',
+      accion_titulo: '',
+      accion_url: '',
       contenido: contenidoPorDefecto(datos.tipo),
     })
     .select('id')
     .single();
 
-  if (error !== null || creado === null) {
+  if (error !== null) {
     return { exito: false, error: mensajeDeError(error, 'No se pudo agregar el bloque.') };
   }
 
-  await revalidarInforme(datos.informeId);
+  revalidarInformes();
 
   return { exito: true, id: (creado as { id: string }).id, mensaje: 'Bloque agregado.' };
 }
@@ -73,81 +62,109 @@ export async function agregarBloque(datos: {
 export async function guardarBloque(datos: {
   bloqueId: string;
   titulo: string;
+  accionTitulo: string;
+  accionUrl: string;
   contenido: unknown;
 }): Promise<ResultadoAccion> {
   await requerirEditor();
 
   const supabase = crearClienteDeServidor();
 
-  const { data: bloque } = await supabase
+  const { data: actual } = await supabase
     .from('bloques')
-    .select('id, informe_id, tipo')
+    .select('tipo')
     .eq('id', datos.bloqueId)
     .maybeSingle();
 
-  if (bloque === null) {
-    return { exito: false, error: 'No se encontró el bloque. Recargue la pantalla.' };
+  const tipo = (actual as Pick<Bloque, 'tipo'> | null)?.tipo;
+  if (tipo === undefined) {
+    return { exito: false, error: 'El bloque ya no existe. Recargue la pantalla.' };
   }
 
-  const tipo = (bloque as Pick<Bloque, 'tipo' | 'informe_id'>).tipo;
   const problema = validarContenidoBloque(tipo, datos.contenido);
-
   if (problema !== null) {
     return { exito: false, error: problema };
   }
 
-  const titulo = datos.titulo.trim();
-  if (titulo.length > 200) {
-    return { exito: false, error: 'El título del bloque no puede superar los 200 caracteres.' };
+  const accionTitulo = datos.accionTitulo.trim();
+  const accionUrl = datos.accionUrl.trim();
+
+  if (accionTitulo === '' && accionUrl !== '') {
+    return { exito: false, error: 'Escriba el texto del botón, o borre la dirección si no lleva botón.' };
+  }
+  if (accionTitulo !== '' && accionUrl === '') {
+    return { exito: false, error: 'Escriba la dirección del botón, o borre su texto si no lleva botón.' };
+  }
+  if (accionUrl !== '' && !/^https?:\/\//i.test(accionUrl)) {
+    return { exito: false, error: 'La dirección del botón tiene que empezar con http:// o https://' };
   }
 
   const { error } = await supabase
     .from('bloques')
-    .update({ titulo, contenido: datos.contenido })
+    .update({
+      titulo: datos.titulo.trim(),
+      accion_titulo: accionTitulo,
+      accion_url: accionUrl,
+      contenido: datos.contenido,
+    })
     .eq('id', datos.bloqueId);
 
   if (error !== null) {
     return { exito: false, error: mensajeDeError(error, 'No se pudo guardar el bloque.') };
   }
 
-  await revalidarInforme((bloque as Pick<Bloque, 'informe_id'>).informe_id);
+  revalidarInformes();
 
   return { exito: true, mensaje: 'Bloque guardado.' };
 }
 
-export async function eliminarBloque(bloqueId: string): Promise<ResultadoAccion> {
+/**
+ * Marca o desmarca un punto de la agenda.
+ *
+ * Se llama desde la vista del informe, no desde la edicion: quien presenta va
+ * tildando los temas a medida que se tratan y eso queda como constancia. Solo
+ * lo puede hacer quien tiene permiso de edicion; Direccion lo ve marcado.
+ */
+export async function alternarPuntoDeAgenda(datos: {
+  bloqueId: string;
+  indice: number;
+  tratado: boolean;
+}): Promise<ResultadoAccion> {
   await requerirEditor();
 
   const supabase = crearClienteDeServidor();
 
-  const { data: bloque } = await supabase
+  const { data: actual } = await supabase
     .from('bloques')
-    .select('informe_id')
-    .eq('id', bloqueId)
+    .select('tipo, contenido')
+    .eq('id', datos.bloqueId)
     .maybeSingle();
 
-  if (bloque === null) {
-    return { exito: false, error: 'No se encontró el bloque. Recargue la pantalla.' };
+  const fila = actual as { tipo: string; contenido: ContenidoAgenda } | null;
+  if (fila === null || fila.tipo !== 'agenda') {
+    return { exito: false, error: 'Ese bloque ya no es una agenda. Recargue la pantalla.' };
   }
 
-  const { error } = await supabase.from('bloques').delete().eq('id', bloqueId);
+  const puntos = [...(fila.contenido.puntos ?? [])];
+  const punto = puntos[datos.indice];
+  if (punto === undefined) {
+    return { exito: false, error: 'Ese punto de la agenda ya no existe. Recargue la pantalla.' };
+  }
+
+  puntos[datos.indice] = { ...punto, tratado: datos.tratado };
+  const contenido: ContenidoAgenda = { ...fila.contenido, puntos };
+
+  const { error } = await supabase.from('bloques').update({ contenido }).eq('id', datos.bloqueId);
 
   if (error !== null) {
-    return { exito: false, error: mensajeDeError(error, 'No se pudo eliminar el bloque.') };
+    return { exito: false, error: mensajeDeError(error, 'No se pudo guardar el estado del punto.') };
   }
 
-  await revalidarInforme((bloque as Pick<Bloque, 'informe_id'>).informe_id);
+  revalidarInformes();
 
-  return { exito: true, mensaje: 'Bloque eliminado.' };
+  return { exito: true };
 }
 
-/**
- * Mueve un bloque una posicion.
- *
- * Se intercambian los valores de `orden` con el bloque vecino. No hay
- * restriccion de unicidad sobre `orden`, asi que el intercambio no necesita un
- * valor intermedio.
- */
 export async function moverBloque(datos: {
   bloqueId: string;
   direccion: 'arriba' | 'abajo';
@@ -156,67 +173,64 @@ export async function moverBloque(datos: {
 
   const supabase = crearClienteDeServidor();
 
-  const { data: bloque } = await supabase
+  const { data: actual } = await supabase
     .from('bloques')
-    .select('id, informe_id, orden')
+    .select('id, orden, seccion_id')
     .eq('id', datos.bloqueId)
     .maybeSingle();
 
+  const bloque = actual as Pick<Bloque, 'id' | 'orden' | 'seccion_id'> | null;
   if (bloque === null) {
-    return { exito: false, error: 'No se encontró el bloque. Recargue la pantalla.' };
+    return { exito: false, error: 'El bloque ya no existe. Recargue la pantalla.' };
   }
 
-  const actual = bloque as Pick<Bloque, 'id' | 'informe_id' | 'orden'>;
-
-  const { data: hermanos } = await supabase
+  const comparacion = datos.direccion === 'arriba' ? 'lt' : 'gt';
+  const { data: vecinoCrudo } = await supabase
     .from('bloques')
     .select('id, orden')
-    .eq('informe_id', actual.informe_id)
-    .order('orden', { ascending: true })
-    .order('id', { ascending: true });
+    .eq('seccion_id', bloque.seccion_id)
+    [comparacion]('orden', bloque.orden)
+    .order('orden', { ascending: datos.direccion === 'abajo' })
+    .limit(1)
+    .maybeSingle();
 
-  const lista = (hermanos as Array<{ id: string; orden: number }> | null) ?? [];
-  const posicion = lista.findIndex((elemento) => elemento.id === actual.id);
-
-  if (posicion === -1) {
-    return { exito: false, error: 'No se encontró el bloque. Recargue la pantalla.' };
+  const vecino = vecinoCrudo as { id: string; orden: number } | null;
+  if (vecino === null) {
+    return { exito: true, mensaje: 'El bloque ya está en el extremo.' };
   }
 
-  const posicionVecina = datos.direccion === 'arriba' ? posicion - 1 : posicion + 1;
+  const { error: errorUno } = await supabase
+    .from('bloques')
+    .update({ orden: vecino.orden })
+    .eq('id', bloque.id);
+  const { error: errorDos } = await supabase
+    .from('bloques')
+    .update({ orden: bloque.orden })
+    .eq('id', vecino.id);
 
-  if (lista[posicionVecina] === undefined) {
-    return { exito: false, error: 'El bloque ya está en el extremo de la lista.' };
+  if (errorUno !== null || errorDos !== null) {
+    return {
+      exito: false,
+      error: mensajeDeError(errorUno ?? errorDos, 'No se pudo reordenar el bloque.'),
+    };
   }
 
-  // Se intercambian las dos posiciones y se vuelve a numerar la lista entera.
-  // Intercambiar solo los dos valores de `orden` no alcanza: pueden venir
-  // repetidos o con huecos de duplicaciones anteriores, y el resultado seria un
-  // orden distinto del que la persona ve en pantalla.
-  const reordenada = [...lista];
-  const propio = reordenada[posicion];
-  const vecino = reordenada[posicionVecina];
-
-  if (propio === undefined || vecino === undefined) {
-    return { exito: false, error: 'No se encontró el bloque. Recargue la pantalla.' };
-  }
-
-  reordenada[posicion] = vecino;
-  reordenada[posicionVecina] = propio;
-
-  for (const [indice, elemento] of reordenada.entries()) {
-    if (elemento.orden === indice + 1) continue;
-
-    const { error } = await supabase
-      .from('bloques')
-      .update({ orden: indice + 1 })
-      .eq('id', elemento.id);
-
-    if (error !== null) {
-      return { exito: false, error: mensajeDeError(error, 'No se pudo reordenar el bloque.') };
-    }
-  }
-
-  await revalidarInforme(actual.informe_id);
+  revalidarInformes();
 
   return { exito: true };
+}
+
+export async function eliminarBloque(datos: { bloqueId: string }): Promise<ResultadoAccion> {
+  await requerirEditor();
+
+  const supabase = crearClienteDeServidor();
+  const { error } = await supabase.from('bloques').delete().eq('id', datos.bloqueId);
+
+  if (error !== null) {
+    return { exito: false, error: mensajeDeError(error, 'No se pudo eliminar el bloque.') };
+  }
+
+  revalidarInformes();
+
+  return { exito: true, mensaje: 'Bloque eliminado.' };
 }

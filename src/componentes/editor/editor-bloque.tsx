@@ -15,21 +15,29 @@ import { BotonAccion } from '@/componentes/boton-accion';
 import { CampoTexto, Etiquetado } from '@/componentes/campos';
 import { Etiqueta } from '@/componentes/etiqueta';
 import { CabeceraTarjeta, CuerpoTarjeta, Tarjeta } from '@/componentes/tarjeta';
+import { EditorAgenda } from '@/componentes/editor/editor-agenda';
 import { EditorAlertas } from '@/componentes/editor/editor-alertas';
+import { EditorCalendario } from '@/componentes/editor/editor-calendario';
 import { EditorEnlaces } from '@/componentes/editor/editor-enlaces';
+import { EditorFichas } from '@/componentes/editor/editor-fichas';
 import { EditorHitos } from '@/componentes/editor/editor-hitos';
 import { EditorIndicadores } from '@/componentes/editor/editor-indicadores';
+import { EditorLineaTiempo } from '@/componentes/editor/editor-linea-tiempo';
 import { EditorTabla } from '@/componentes/editor/editor-tabla';
 import { EditorTexto } from '@/componentes/editor/editor-texto';
 import { eliminarBloque, guardarBloque, moverBloque } from '@/acciones/bloques';
 import {
   DESCRIPCIONES_TIPO_BLOQUE,
   ETIQUETAS_TIPO_BLOQUE,
+  type ContenidoAgenda,
   type ContenidoAlertas,
   type ContenidoBloque,
+  type ContenidoCalendario,
   type ContenidoEnlaces,
+  type ContenidoFichas,
   type ContenidoHitos,
   type ContenidoIndicadores,
+  type ContenidoLineaTiempo,
   type ContenidoTabla,
   type ContenidoTexto,
 } from '@/lib/bloques';
@@ -45,6 +53,8 @@ export function EditorBloque({
   esUltimo: boolean;
 }) {
   const [titulo, establecerTitulo] = useState(bloque.titulo);
+  const [accionTitulo, establecerAccionTitulo] = useState(bloque.accion_titulo);
+  const [accionUrl, establecerAccionUrl] = useState(bloque.accion_url);
   const [contenido, establecerContenido] = useState<ContenidoBloque>(bloque.contenido);
   const [sinGuardar, establecerSinGuardar] = useState(false);
   const [mensaje, establecerMensaje] = useState<string | null>(null);
@@ -91,7 +101,7 @@ export function EditorBloque({
               Bajar
             </BotonAccion>
             <BotonAccion
-              accion={() => eliminarBloque(bloque.id)}
+              accion={() => eliminarBloque({ bloqueId: bloque.id })}
               etiquetaCargando="Eliminando…"
               variante="peligro"
               tamano="chico"
@@ -116,13 +126,44 @@ export function EditorBloque({
           />
         </Etiquetado>
 
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Etiquetado
+            etiqueta="Texto del botón"
+            ayuda="Opcional. Aparece arriba a la derecha del bloque."
+          >
+            <CampoTexto
+              value={accionTitulo}
+              placeholder="Plan de pautas"
+              onChange={(evento) => {
+                establecerAccionTitulo(evento.target.value);
+                establecerSinGuardar(true);
+                establecerMensaje(null);
+              }}
+            />
+          </Etiquetado>
+
+          <Etiquetado etiqueta="Dirección del botón" ayuda="Empieza con https://">
+            <CampoTexto
+              value={accionUrl}
+              placeholder="https://docs.google.com/..."
+              onChange={(evento) => {
+                establecerAccionUrl(evento.target.value);
+                establecerSinGuardar(true);
+                establecerMensaje(null);
+              }}
+            />
+          </Etiquetado>
+        </div>
+
         <FormularioSegunTipo bloque={bloque} contenido={contenido} alCambiar={cambiar} />
 
         {mensaje !== null ? <Aviso tono="exito">{mensaje}</Aviso> : null}
 
         <div className="flex items-center gap-3">
           <BotonAccion
-            accion={() => guardarBloque({ bloqueId: bloque.id, titulo, contenido })}
+            accion={() =>
+              guardarBloque({ bloqueId: bloque.id, titulo, accionTitulo, accionUrl, contenido })
+            }
             etiquetaCargando="Guardando…"
             variante="primario"
             alTerminar={(resultado) => {
@@ -160,6 +201,14 @@ function FormularioSegunTipo({
   switch (bloque.tipo) {
     case 'indicadores':
       return <EditorIndicadores contenido={contenido as ContenidoIndicadores} alCambiar={alCambiar} />;
+    case 'agenda':
+      return <EditorAgenda contenido={contenido as ContenidoAgenda} alCambiar={alCambiar} />;
+    case 'linea_tiempo':
+      return <EditorLineaTiempo contenido={contenido as ContenidoLineaTiempo} alCambiar={alCambiar} />;
+    case 'calendario':
+      return <EditorCalendario contenido={contenido as ContenidoCalendario} alCambiar={alCambiar} />;
+    case 'fichas':
+      return <EditorFichas contenido={contenido as ContenidoFichas} alCambiar={alCambiar} />;
     case 'hitos':
       return <EditorHitos contenido={contenido as ContenidoHitos} alCambiar={alCambiar} />;
     case 'tabla':

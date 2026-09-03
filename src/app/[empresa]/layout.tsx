@@ -22,7 +22,9 @@ export default async function DisenoDeEmpresa({
   return (
     <div className="min-h-dvh">
       <EncabezadoApp empresas={empresas} slugActual={params.empresa} usuario={usuario} correo={correo} />
-      <main className="mx-auto max-w-contenido px-4 py-6">{children}</main>
+      {/* Cada pantalla arma su propio contenedor: la vista del informe necesita
+          que las pestanas lleguen al borde y el historial no. */}
+      <main>{children}</main>
     </div>
   );
 }

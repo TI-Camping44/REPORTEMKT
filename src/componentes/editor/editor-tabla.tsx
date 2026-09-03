@@ -9,17 +9,21 @@
  * muestra vacia sin decir por que.
  */
 
-import { CampoTexto, Etiquetado, Selector } from '@/componentes/campos';
+import { CampoTexto, Casilla, Etiquetado, Selector } from '@/componentes/campos';
 import { Boton } from '@/componentes/boton';
 import { BotonAgregar, quitar, reemplazar } from '@/componentes/editor/utiles-editor';
 import {
   ALINEACIONES,
-  ETIQUETAS_FORMATO_VALOR,
-  FORMATOS_VALOR,
+  ETIQUETAS_FORMATO_COLUMNA,
+  ETIQUETAS_TONO,
+  FORMATOS_COLUMNA,
+  TONOS,
   type Alineacion,
   type ColumnaTabla,
   type ContenidoTabla,
-  type FormatoValor,
+  type FilaTabla,
+  type FormatoColumna,
+  type Tono,
 } from '@/lib/bloques';
 
 const ETIQUETAS_ALINEACION: Record<Alineacion, string> = {
@@ -165,12 +169,12 @@ export function EditorTabla({
                   <Selector
                     value={columna.formato ?? 'texto'}
                     onChange={(evento) =>
-                      actualizarColumna(indice, { formato: evento.target.value as FormatoValor })
+                      actualizarColumna(indice, { formato: evento.target.value as FormatoColumna })
                     }
                   >
-                    {FORMATOS_VALOR.map((formato) => (
+                    {FORMATOS_COLUMNA.map((formato) => (
                       <option key={formato} value={formato}>
-                        {ETIQUETAS_FORMATO_VALOR[formato]}
+                        {ETIQUETAS_FORMATO_COLUMNA[formato]}
                       </option>
                     ))}
                   </Selector>
@@ -189,6 +193,14 @@ export function EditorTabla({
                   </Boton>
                 </div>
               </div>
+
+              {columna.formato === 'estado' ? (
+                <ColoresDeEstado
+                  columna={columna}
+                  filas={filas}
+                  alCambiar={(tonos) => actualizarColumna(indice, { tonos })}
+                />
+              ) : null}
             </li>
           ))}
         </ul>
@@ -257,12 +269,115 @@ export function EditorTabla({
         </div>
       </section>
 
+      <section>
+        <Casilla
+          etiqueta="Mostrar fila de totales"
+          checked={contenido.total !== null && contenido.total !== undefined}
+          onChange={(evento) => {
+            if (!evento.target.checked) {
+              alCambiar({ ...contenido, total: null });
+              return;
+            }
+            const vacia: FilaTabla = {};
+            for (const columna of columnas) vacia[columna.clave] = '';
+            alCambiar({ ...contenido, total: vacia });
+          }}
+        />
+
+        {contenido.total !== null && contenido.total !== undefined ? (
+          <>
+            <p className="mt-1 text-micro text-atenuado">
+              El total se escribe a mano: la aplicación no suma por su cuenta, para que el cuadro
+              coincida siempre con la planilla de la que sale.
+            </p>
+            <div className="desplazamiento-fino mt-2 overflow-x-auto">
+              <div className="flex min-w-max gap-2">
+                {columnas.map((columna) => (
+                  <div key={columna.clave} className="w-40">
+                    <CampoTexto
+                      aria-label={`Total de ${columna.titulo !== '' ? columna.titulo : columna.clave}`}
+                      className="py-1 text-xs"
+                      placeholder={columna.titulo !== '' ? columna.titulo : columna.clave}
+                      value={String(contenido.total?.[columna.clave] ?? '')}
+                      onChange={(evento) =>
+                        alCambiar({
+                          ...contenido,
+                          total: { ...(contenido.total ?? {}), [columna.clave]: evento.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </section>
+
       <Etiquetado etiqueta="Nota al pie" ayuda="Opcional. Aclara de dónde salen los datos del cuadro.">
         <CampoTexto
           value={contenido.nota ?? ''}
           onChange={(evento) => alCambiar({ ...contenido, nota: evento.target.value })}
         />
       </Etiquetado>
+    </div>
+  );
+}
+
+/**
+ * Color de cada valor de una columna de estado.
+ *
+ * Los valores no se escriben aparte: se leen de las filas ya cargadas. Asi no
+ * hay forma de que la lista de colores y la de datos se desincronicen.
+ */
+function ColoresDeEstado({
+  columna,
+  filas,
+  alCambiar,
+}: {
+  columna: ColumnaTabla;
+  filas: FilaTabla[];
+  alCambiar: (tonos: Record<string, Tono>) => void;
+}) {
+  const valores = Array.from(
+    new Set(
+      filas
+        .map((fila) => String(fila[columna.clave] ?? '').trim())
+        .filter((valor) => valor !== ''),
+    ),
+  );
+
+  if (valores.length === 0) {
+    return (
+      <p className="mt-2 text-micro text-atenuado">
+        Cargue las filas y acá va a poder elegir el color de cada estado.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <p className="mb-1 text-micro font-medium uppercase tracking-wide text-atenuado">
+        Color de cada estado
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {valores.map((valor) => (
+          <Etiquetado key={valor} etiqueta={valor}>
+            <Selector
+              value={columna.tonos?.[valor] ?? 'neutro'}
+              onChange={(evento) =>
+                alCambiar({ ...(columna.tonos ?? {}), [valor]: evento.target.value as Tono })
+              }
+            >
+              {TONOS.map((tono) => (
+                <option key={tono} value={tono}>
+                  {ETIQUETAS_TONO[tono]}
+                </option>
+              ))}
+            </Selector>
+          </Etiquetado>
+        ))}
+      </div>
     </div>
   );
 }
