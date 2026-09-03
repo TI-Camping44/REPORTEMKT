@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Paleta institucional de Camping 44.
+  Rojo institucional #E01E37, gris tinta #14161B.
+  Los valores van en componentes RGB sueltos para que Tailwind pueda aplicar opacidad.
+*/
+:root {
+  --color-fondo: 255 255 255;
+  --color-superficie: 247 247 248;
+  --color-elevado: 255 255 255;
+  --color-texto: 20 22 27;
+  --color-atenuado: 91 98 112;
+  --color-borde: 226 228 234;
+  --color-primario: 224 30 55;
+  --color-primario-texto: 193 18 41;
+  --color-primario-suave: 253 236 238;
+  --color-exito: 21 128 61;
+  --color-advertencia: 161 98 7;
+  --color-peligro: 185 28 28;
+  color-scheme: light;
+}
+
+.dark {
+  --color-fondo: 14 16 19;
+  --color-superficie: 20 22 27;
+  --color-elevado: 26 29 36;
+  --color-texto: 237 238 241;
+  --color-atenuado: 155 161 174;
+  --color-borde: 38 42 51;
+  --color-primario: 224 30 55;
+  --color-primario-texto: 255 98 116;
+  --color-primario-suave: 47 20 25;
+  --color-exito: 74 190 118;
+  --color-advertencia: 226 173 68;
+  --color-peligro: 248 113 113;
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-borde;
+  }
+
+  html {
+    /* El cuerpo de la pagina nunca se desplaza en horizontal: los tableros de
+       Looker traen su propio contenedor con desplazamiento. */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-fondo text-texto antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primario ring-offset-2 ring-offset-fondo;
+  }
+}
+
+@layer components {
+  .desplazamiento-fino {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-borde)) transparent;
+  }
+
+  .desplazamiento-fino::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+
+  .desplazamiento-fino::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-borde;
+  }
+}
