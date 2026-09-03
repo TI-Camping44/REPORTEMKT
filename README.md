@@ -175,6 +175,24 @@ donde está la base de datos. Si el proyecto de Supabase se recrea en otra
 región, hay que cambiar ese valor: dejar la aplicación y la base en continentes
 distintos agrega una ida y vuelta a cada consulta.
 
+## Seguimiento entre reuniones
+
+Cada informe es la foto de una reunión y no cambia. Lo que no se ve mirando un
+informe solo es la evolución, y para eso está `/[empresa]/seguimiento`:
+
+- **Indicadores por reunión** — un indicador por fila, una reunión por columna,
+  con la variación entre las dos últimas en que aparece. Los indicadores se
+  siguen por su etiqueta, así que renombrar uno corta su serie.
+- **Decisiones pendientes** — los puntos marcados como críticos o pendientes,
+  con cuántas reuniones llevan sin resolverse. Un pendiente que aparece por
+  cuarta vez no se lee igual que uno nuevo.
+
+Se puede acotar a las últimas 3, 6 o 12 reuniones, o verlas todas.
+
+No calcula ninguna métrica ni consulta ninguna API: ordena lo que ya está
+escrito en los informes. El panel de tráfico, redes y pauta con su filtro de
+fechas es Looker, embebido en cada informe.
+
 ## Bloques vinculados a una planilla
 
 > **Hoy está apagado.** La aplicación puede leer un cuadro directamente de una

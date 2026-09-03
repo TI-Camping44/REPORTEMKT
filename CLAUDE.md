@@ -188,6 +188,24 @@ La tarea diaria de `vercel.json` (`/api/tareas/actualizar-planillas`) corre sin
 sesión y por eso usa el cliente con la clave de servicio: es el caso para el que
 existe. Valida `CRON_SECRET` y, sin ese valor configurado, no hace nada.
 
+## La vista de seguimiento
+
+`/[empresa]/seguimiento` compara las reuniones entre sí: cada indicador a lo
+largo del tiempo y las decisiones que se arrastran de una reunión a otra.
+
+**No calcula nada nuevo.** Recorre los informes ya cargados y ordena lo que ya
+está escrito en ellos (`src/lib/seguimiento.ts`, funciones puras). El panel de
+tráfico, redes y pauta con filtro de fechas es Looker, y va embebido en cada
+informe: no se replica acá.
+
+Los indicadores se siguen **por su etiqueta**, comparada sin distinguir
+mayúsculas ni tildes. Si Marketing renombra un indicador, la serie se corta y
+aparecen dos. Es deliberado: adivinar que dos etiquetas distintas son lo mismo
+junta series que no corresponden.
+
+Las decisiones que se arrastran son las alertas con tono `riesgo` o
+`pendiente`. Las demás son informativas y no se siguen.
+
 ## El iframe de Looker Studio
 
 Cuatro cosas que se rompen si no se respetan (`src/componentes/tablero-looker.tsx`):
